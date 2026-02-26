@@ -24,11 +24,14 @@ class JobListItem(ListItem):
         self.status = status # "Queued", "Running", "Finished"
 
     def compose(self) -> ComposeResult:
-        icon = "⏳"
         if self.status == "Running":
             icon = "▶"
         elif self.status == "Finished":
             icon = "✔"
+        elif self.status == "Queued":
+            icon = "~"
+        else:
+            icon = "?"
         
         yield Label(f"{icon} {self.job_id}", classes=self.status.lower())
 
