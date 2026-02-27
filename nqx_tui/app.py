@@ -2,7 +2,7 @@ import os
 import shlex
 import subprocess
 from textual.app import App, ComposeResult
-from textual.widgets import Header, Footer, ListView, Log, Input, Label, Static
+from textual.widgets import Header, Footer, ListView, RichLog, Input, Label, Static
 from textual.containers import Horizontal, Vertical, Container
 from textual.binding import Binding
 from textual.reactive import reactive
@@ -17,10 +17,10 @@ class NQX(App):
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
-        Binding("d", "delete_job", "Kill"),
-        Binding("K", "move_up", "Swap Up"),
-        Binding("J", "move_down", "Swap Down"),
-        Binding("r", "restart_job", "Repeat"),
+        Binding("K", "delete_job", "Kill"),
+        Binding("k", "move_up", "Swap Up"),
+        Binding("j", "move_down", "Swap Down"),
+        Binding("d", "restart_job", "Duplicate"),
         Binding("c", "clear_logs", "Clean"),
         Binding("!", "focus_input", "Command"),
         Binding("escape", "focus_list", "Back", show=False),
@@ -39,7 +39,8 @@ class NQX(App):
                 with Vertical(id="log_container", classes="pane") as p:
                     p.border_title = "LOG OUTPUT"
                     p.can_focus = False
-                    yield Log(id="log_view", auto_scroll=True, max_lines=1000)
+                    yield Static("", id="log_header")
+                    yield RichLog(id="log_view", wrap=True, auto_scroll=True, max_lines=1000)
                 with Container(id="command_pane") as p:
                     p.can_focus = False
                     with Horizontal(id="input_layout"):
@@ -124,21 +125,31 @@ class NQX(App):
                 self.selected_job = event.item.job_id
                 self.query_one("#log_view").clear()
                 self.last_read_pos[self.selected_job] = 0
+                # Show the command as a fixed header
+                self.query_one("#log_header", Static).update(
+                    f"[bold #00ff00]$ {event.item.display_name}[/]"
+                )
                 self.update_log_tail()
-                self.query_one("#log_container").border_subtitle = event.item.display_name
+                self.query_one("#log_container").border_subtitle = self.selected_job
         else:
             self.selected_job = None
             self.query_one("#log_view").clear()
+            self.query_one("#log_header", Static).update("")
             self.query_one("#log_container").border_subtitle = ""
 
     def update_log_tail(self) -> None:
         if not self.selected_job: return
         log_path = os.path.join(self.nq_dir, self.selected_job)
-        log_view = self.query_one("#log_view", Log)
+        log_view = self.query_one("#log_view", RichLog)
         try:
             size = os.path.getsize(log_path)
             pos = self.last_read_pos.get(self.selected_job, 0)
             if size < pos: pos = 0; log_view.clear()
+            if pos == 0:
+                # Skip the first line (exec command) — it's shown in the header
+                with open(log_path, "rb") as f:
+                    first_line = f.readline()
+                    pos = f.tell()
             if size > pos:
                 with open(log_path, "rb") as f:
                     f.seek(pos)
