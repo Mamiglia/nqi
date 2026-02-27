@@ -37,7 +37,7 @@ class NQX(App):
             with Vertical(id="job_list_container", classes="pane") as p:
                 p.border_title = "JOBS"
                 p.can_focus = False
-                yield ListView(id="job_list", initial_index=0)
+                yield ListView(id="job_list")
             with Vertical(id="log_container", classes="pane") as p:
                 p.border_title = "LOG OUTPUT"
                 p.can_focus = False
@@ -53,12 +53,14 @@ class NQX(App):
         self.nq_dir = os.path.abspath(os.environ.get("NQDIR", "."))
         self.nq_path = get_nq_executable()
         self.last_read_pos = {} 
+        self._target_index = None
         self.refresh_jobs()
         self.set_interval(1.0, self.refresh_jobs)
         self.set_interval(0.5, self.update_log_tail)
         
         job_list = self.query_one("#job_list", ListView)
         job_list.highlight_on_focus = False
+        job_list.index = 0
         job_list.focus()
         
         log_view = self.query_one("#log_view")
@@ -81,18 +83,31 @@ class NQX(App):
             current_ids = [getattr(w, "job_id", None) for w in current_widgets]
 
             if current_ids != files:
+                was_focused = job_list.has_focus
+                # Clear and rebuild
                 job_list.clear()
                 for f in files:
                     status = get_job_status(os.path.join(self.nq_dir, f))
                     job_list.append(JobListItem(f, status))
                 
-                if current_id:
+                # Reset index to force Highlighted event even if it's the same index
+                job_list.index = None
+                
+                if self._target_index is not None and files:
+                    job_list.index = max(0, min(self._target_index, len(files) - 1))
+                    self._target_index = None
+                elif current_id:
                     for i, item in enumerate(job_list.children):
                         if item.job_id == current_id:
                             job_list.index = i
                             break
+                    else:
+                        if files: job_list.index = 0
                 elif files:
                     job_list.index = 0
+                
+                if was_focused:
+                    job_list.focus()
             else:
                 for widget in current_widgets:
                     status = get_job_status(os.path.join(self.nq_dir, widget.job_id))
@@ -103,12 +118,17 @@ class NQX(App):
             pass
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
-        if event.item and self.selected_job != event.item.job_id:
-            self.selected_job = event.item.job_id
+        if event.item:
+            if self.selected_job != event.item.job_id:
+                self.selected_job = event.item.job_id
+                self.query_one("#log_view").clear()
+                self.last_read_pos[self.selected_job] = 0
+                self.update_log_tail()
+                self.query_one("#log_container").border_subtitle = self.selected_job
+        else:
+            self.selected_job = None
             self.query_one("#log_view").clear()
-            self.last_read_pos[self.selected_job] = 0
-            self.update_log_tail()
-            self.query_one("#log_container").border_subtitle = self.selected_job
+            self.query_one("#log_container").border_subtitle = ""
 
     def update_log_tail(self) -> None:
         if not self.selected_job: return
@@ -154,6 +174,7 @@ class NQX(App):
             j2 = job_list.children[idx + 1]
             if j1.status == "Queued" and j2.status == "Queued":
                 current_files = [w.job_id for w in job_list.children]
+                self._target_index = idx + 1
                 swap_jobs(self.nq_dir, j1.job_id, j2.job_id, current_files)
                 self.refresh_jobs()
             else:
@@ -167,6 +188,7 @@ class NQX(App):
             j2 = job_list.children[idx]
             if j1.status == "Queued" and j2.status == "Queued":
                 current_files = [w.job_id for w in job_list.children]
+                self._target_index = idx - 1
                 swap_jobs(self.nq_dir, j1.job_id, j2.job_id, current_files)
                 self.refresh_jobs()
             else:
@@ -174,6 +196,8 @@ class NQX(App):
 
     def action_restart_job(self) -> None:
         if self.selected_job:
+            job_list = self.query_one("#job_list")
+            idx = job_list.index
             path = os.path.join(self.nq_dir, self.selected_job)
             with open(path, "r") as f:
                 line = f.readline().strip()
@@ -183,11 +207,14 @@ class NQX(App):
                     subprocess.run([self.nq_path, "-k", self.selected_job])
                     try: os.remove(path)
                     except: pass
+                    self._target_index = idx
                     run_nq_cmd(cmd_args)
             self.refresh_jobs()
 
     def action_delete_job(self) -> None:
         if self.selected_job:
+            job_list = self.query_one("#job_list")
+            self._target_index = job_list.index
             subprocess.run([self.nq_path, "-k", self.selected_job])
             self.refresh_jobs()
 
