@@ -23,7 +23,7 @@ class NQX(App):
         Binding("J", "move_down", "Swap Down"),
         Binding("s", "restart_job", "Restart"),
         Binding("c", "clear_logs", "Clean"),
-        Binding("r", "refresh", "Refresh"),
+        # Binding("r", "refresh", "Refresh"),
         Binding("!", "focus_input", "Command"),
         Binding("escape", "focus_list", "Back", show=False),
     ]
