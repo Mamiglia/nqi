@@ -16,6 +16,7 @@ class NQX(App):
     """The main nqx application interface."""
     TITLE = "nqx"
     CSS_PATH = "styles.css"
+    ENABLE_COMMAND_PALETTE = False
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
@@ -54,7 +55,6 @@ class NQX(App):
             self.notify(message, severity="warning", timeout=self.CONFIRM_TIMEOUT)
 
     def compose(self) -> ComposeResult:
-        yield Header()
         with Horizontal(id="main_container"):
             with Vertical(id="job_list_container", classes="pane") as p:
                 p.border_title = "JOBS"
