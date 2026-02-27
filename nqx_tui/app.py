@@ -1,14 +1,13 @@
 import os
 import shlex
 import subprocess
-from pathlib import Path
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, Log, Input, Label, Static
 from textual.containers import Horizontal, Vertical, Container
 from textual.binding import Binding
 from textual.reactive import reactive
 
-from .logic import sanitize_ansi, get_job_status, get_nq_executable, run_nq_cmd, swap_jobs
+from .logic import JobStatus, sanitize_ansi, get_job_command, get_job_status, get_nq_executable, run_nq_cmd, swap_jobs
 from .widgets import JobListItem
 
 class NQX(App):
@@ -21,12 +20,10 @@ class NQX(App):
         Binding("d", "delete_job", "Kill"),
         Binding("K", "move_up", "Swap Up"),
         Binding("J", "move_down", "Swap Down"),
-        Binding("s", "restart_job", "Restart"),
+        Binding("r", "restart_job", "Repeat"),
         Binding("c", "clear_logs", "Clean"),
-        # Binding("r", "refresh", "Refresh"),
         Binding("!", "focus_input", "Command"),
         Binding("escape", "focus_list", "Back", show=False),
-        Binding("tab", "none", "None", show=False),
     ]
 
     selected_job = reactive(None)
@@ -38,15 +35,16 @@ class NQX(App):
                 p.border_title = "JOBS"
                 p.can_focus = False
                 yield ListView(id="job_list")
-            with Vertical(id="log_container", classes="pane") as p:
-                p.border_title = "LOG OUTPUT"
-                p.can_focus = False
-                yield Log(id="log_view", auto_scroll=True, max_lines=1000)
-        with Container(id="command_pane") as p:
-            p.can_focus = False
-            with Horizontal(id="input_layout"):
-                yield Label(" λ ", id="input_prompt")
-                yield Input(placeholder="Enter command (hit ! to focus)...", id="command_input")
+            with Vertical(id="right_panel"):
+                with Vertical(id="log_container", classes="pane") as p:
+                    p.border_title = "LOG OUTPUT"
+                    p.can_focus = False
+                    yield Log(id="log_view", auto_scroll=True, max_lines=1000)
+                with Container(id="command_pane") as p:
+                    p.can_focus = False
+                    with Horizontal(id="input_layout"):
+                        yield Label(" λ ", id="input_prompt")
+                        yield Input(placeholder="Enter command (hit ! to focus)...", id="command_input")
         yield Footer()
 
     def on_mount(self) -> None:
@@ -68,8 +66,8 @@ class NQX(App):
         log_view.styles.overflow_x = "hidden"
 
     def on_key(self, event) -> None:
+        """Suppress tab focus cycling."""
         if event.key in ("tab", "shift+tab"):
-            event.stop()
             event.prevent_default()
 
     def refresh_jobs(self) -> None:
@@ -87,27 +85,30 @@ class NQX(App):
                 # Clear and rebuild
                 job_list.clear()
                 for f in files:
-                    status = get_job_status(os.path.join(self.nq_dir, f))
-                    job_list.append(JobListItem(f, status))
+                    path = os.path.join(self.nq_dir, f)
+                    status = get_job_status(path)
+                    cmd = get_job_command(path)
+                    name = " ".join(cmd) if cmd else f
+                    job_list.append(JobListItem(f, status, name))
                 
-                # Reset index to force Highlighted event even if it's the same index
-                job_list.index = None
-                
+                # Determine the desired index
                 if self._target_index is not None and files:
-                    job_list.index = max(0, min(self._target_index, len(files) - 1))
+                    target = max(0, min(self._target_index, len(files) - 1))
                     self._target_index = None
                 elif current_id:
-                    for i, item in enumerate(job_list.children):
-                        if item.job_id == current_id:
-                            job_list.index = i
-                            break
-                    else:
-                        if files: job_list.index = 0
-                elif files:
-                    job_list.index = 0
+                    target = next(
+                        (i for i, item in enumerate(job_list.children) if item.job_id == current_id),
+                        0 if files else None,
+                    )
+                else:
+                    target = 0 if files else None
                 
-                if was_focused:
-                    job_list.focus()
+                # Defer index assignment so the new items are mounted first
+                def _restore(idx=target, focus=was_focused):
+                    job_list.index = idx
+                    if focus:
+                        job_list.focus()
+                self.call_after_refresh(_restore)
             else:
                 for widget in current_widgets:
                     status = get_job_status(os.path.join(self.nq_dir, widget.job_id))
@@ -124,7 +125,7 @@ class NQX(App):
                 self.query_one("#log_view").clear()
                 self.last_read_pos[self.selected_job] = 0
                 self.update_log_tail()
-                self.query_one("#log_container").border_subtitle = self.selected_job
+                self.query_one("#log_container").border_subtitle = event.item.display_name
         else:
             self.selected_job = None
             self.query_one("#log_view").clear()
@@ -154,10 +155,6 @@ class NQX(App):
     def action_focus_list(self) -> None:
         self.query_one("#job_list").focus()
 
-    def action_none(self) -> None:
-        """Disabled key handler."""
-        pass
-
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         cmd = event.value.strip()
         if cmd:
@@ -166,49 +163,33 @@ class NQX(App):
             self.action_focus_list()
             self.refresh_jobs()
 
-    def action_move_down(self) -> None:
+    def _swap(self, direction: int) -> None:
+        """Swap the selected job with its neighbor. direction: +1 (down) or -1 (up)."""
         job_list = self.query_one("#job_list")
         idx = job_list.index
-        if idx is not None and idx < len(job_list.children) - 1:
-            j1 = job_list.children[idx]
-            j2 = job_list.children[idx + 1]
-            if j1.status == "Queued" and j2.status == "Queued":
-                current_files = [w.job_id for w in job_list.children]
-                self._target_index = idx + 1
-                swap_jobs(self.nq_dir, j1.job_id, j2.job_id, current_files)
-                self.refresh_jobs()
-            else:
-                self.notify("Can only swap queued jobs", severity="warning")
+        neighbor = idx + direction if idx is not None else None
+        if neighbor is None or neighbor < 0 or neighbor >= len(job_list.children):
+            return
+        j1, j2 = job_list.children[min(idx, neighbor)], job_list.children[max(idx, neighbor)]
+        if j1.status != JobStatus.QUEUED or j2.status != JobStatus.QUEUED:
+            self.notify("Can only swap queued jobs", severity="warning")
+            return
+        self._target_index = neighbor
+        swap_jobs(self.nq_dir, j1.job_id, j2.job_id, [w.job_id for w in job_list.children])
+        self.refresh_jobs()
+
+    def action_move_down(self) -> None:
+        self._swap(+1)
 
     def action_move_up(self) -> None:
-        job_list = self.query_one("#job_list")
-        idx = job_list.index
-        if idx is not None and idx > 0:
-            j1 = job_list.children[idx - 1]
-            j2 = job_list.children[idx]
-            if j1.status == "Queued" and j2.status == "Queued":
-                current_files = [w.job_id for w in job_list.children]
-                self._target_index = idx - 1
-                swap_jobs(self.nq_dir, j1.job_id, j2.job_id, current_files)
-                self.refresh_jobs()
-            else:
-                self.notify("Can only swap queued jobs", severity="warning")
+        self._swap(-1)
 
     def action_restart_job(self) -> None:
         if self.selected_job:
-            job_list = self.query_one("#job_list")
-            idx = job_list.index
             path = os.path.join(self.nq_dir, self.selected_job)
-            with open(path, "r") as f:
-                line = f.readline().strip()
-                if line.startswith("exec "):
-                    parts = shlex.split(line[5:])
-                    cmd_args = parts[1:] if (parts[0] == "nq" or parts[0].endswith("/nq")) else parts
-                    subprocess.run([self.nq_path, "-k", self.selected_job])
-                    try: os.remove(path)
-                    except: pass
-                    self._target_index = idx
-                    run_nq_cmd(cmd_args)
+            cmd_args = get_job_command(path)
+            if cmd_args:
+                run_nq_cmd(cmd_args)
             self.refresh_jobs()
 
     def action_delete_job(self) -> None:
@@ -220,14 +201,7 @@ class NQX(App):
 
     def action_clear_logs(self) -> None:
         for f in os.listdir(self.nq_dir):
-            if f.startswith(",") and get_job_status(os.path.join(self.nq_dir, f)) == "Finished":
+            if f.startswith(",") and get_job_status(os.path.join(self.nq_dir, f)) == JobStatus.FINISHED:
                 try: os.remove(os.path.join(self.nq_dir, f))
                 except: pass
         self.refresh_jobs()
-
-    def action_refresh(self) -> None:
-        self.refresh_jobs()
-        if self.selected_job:
-            self.query_one("#log_view").clear()
-            self.last_read_pos[self.selected_job] = 0
-            self.update_log_tail()

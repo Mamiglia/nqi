@@ -4,6 +4,14 @@ import re
 import shlex
 import subprocess
 import time
+from enum import Enum
+
+
+class JobStatus(Enum):
+    RUNNING = "Running"
+    QUEUED = "Queued"
+    FINISHED = "Finished"
+    UNKNOWN = "Unknown"
 
 def sanitize_ansi(text: str) -> str:
     """Removes ANSI escape codes and formats logs."""
@@ -12,7 +20,7 @@ def sanitize_ansi(text: str) -> str:
     text = text.replace('\f', '\n--- Clear ---\n')
     return text
 
-def get_job_status(path: str) -> str:
+def get_job_status(path: str) -> JobStatus:
     """Determines the current status of an nq job by checking file locks."""
     try:
         with open(path, "r") as f:
@@ -20,12 +28,12 @@ def get_job_status(path: str) -> str:
                 # Try to get a shared lock without blocking
                 fcntl.flock(f, fcntl.LOCK_SH | fcntl.LOCK_NB)
                 fcntl.flock(f, fcntl.LOCK_UN)
-                return "Finished"
+                return JobStatus.FINISHED
             except (BlockingIOError, IOError):
                 # If lock is held, check if the executable bit is set
-                return "Running" if os.access(path, os.X_OK) else "Queued"
+                return JobStatus.RUNNING if os.access(path, os.X_OK) else JobStatus.QUEUED
     except:
-        return "Unknown"
+        return JobStatus.UNKNOWN
 
 def get_nq_executable():
     """Returns the absolute path to the nq binary."""
@@ -40,6 +48,18 @@ def get_nq_executable():
     
     # Fallback to system PATH
     return "nq"
+
+def get_job_command(path: str) -> list[str] | None:
+    """Reads the command from a job file's first line (exec ...)."""
+    try:
+        with open(path, "r") as f:
+            line = f.readline().strip()
+            if line.startswith("exec "):
+                parts = shlex.split(line[5:])
+                return parts[1:] if (parts[0] == "nq" or parts[0].endswith("/nq")) else parts
+    except Exception:
+        pass
+    return None
 
 def run_nq_cmd(args: list):
     """Executes an nq command in the background."""
@@ -61,17 +81,13 @@ def swap_jobs(nq_dir: str, job1_id: str, job2_id: str, current_files: list):
     commands = []
     for jid in affected_ids:
         path = os.path.join(nq_dir, jid)
-        if get_job_status(path) != "Queued":
+        if get_job_status(path) != JobStatus.QUEUED:
             continue # Skip non-queued jobs if state changed
-            
-        with open(path, "r") as f:
-            line = f.readline().strip()
-            if line.startswith("exec "):
-                parts = shlex.split(line[5:])
-                # Clean command parts if they include 'nq'
-                cmd = parts[1:] if (parts[0] == "nq" or parts[0].endswith("/nq")) else parts
-                commands.append(cmd)
-        
+
+        cmd = get_job_command(path)
+        if cmd:
+            commands.append(cmd)
+
         # Kill and remove old job
         subprocess.run([nq_path, "-k", jid])
         try:
