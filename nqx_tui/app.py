@@ -26,6 +26,7 @@ class NQX(App):
         # Binding("r", "refresh", "Refresh"),
         Binding("!", "focus_input", "Command"),
         Binding("escape", "focus_list", "Back", show=False),
+        Binding("tab", "none", "None", show=False),
     ]
 
     selected_job = reactive(None)
@@ -63,6 +64,11 @@ class NQX(App):
         log_view = self.query_one("#log_view")
         log_view.can_focus = False
         log_view.styles.overflow_x = "hidden"
+
+    def on_key(self, event) -> None:
+        if event.key in ("tab", "shift+tab"):
+            event.stop()
+            event.prevent_default()
 
     def refresh_jobs(self) -> None:
         try:
@@ -127,6 +133,10 @@ class NQX(App):
 
     def action_focus_list(self) -> None:
         self.query_one("#job_list").focus()
+
+    def action_none(self) -> None:
+        """Disabled key handler."""
+        pass
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         cmd = event.value.strip()
