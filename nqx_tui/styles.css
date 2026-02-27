@@ -19,11 +19,11 @@ Screen {
 }
 
 #job_list_container { width: 35%; }
-#log_container { width: 65%; }
+#right_panel { width: 65%; }
+#log_container { height: 1fr; }
 
 #command_pane {
     height: 3;
-    margin: 1 1 0 1;
     border: round #333333;
     background: black;
 }
@@ -44,14 +44,13 @@ ListItem {
 }
 
 /* Highlight when NOT focused */
-ListItem.-highlight, ListItem.--highlight {
+ListItem.-highlight {
     background: #1a1a1a !important;
     color: white !important;
 }
 
 /* Highlight when focused */
-ListView:focus > ListItem.-highlight,
-ListView:focus > ListItem.--highlight {
+ListView:focus > ListItem.-highlight {
     background: #00ff00 !important;
     color: black !important;
 }
@@ -62,13 +61,12 @@ ListView:focus > ListItem.--highlight {
 }
 
 /* Ensure label text is readable and background doesn't override */
-ListItem.-highlight Static, ListItem.--highlight Static {
+ListItem.-highlight Static {
     text-style: bold;
     background: transparent !important;
 }
 
-ListView:focus > ListItem.-highlight Static,
-ListView:focus > ListItem.--highlight Static {
+ListView:focus > ListItem.-highlight Static {
     color: black !important;
 }
 
