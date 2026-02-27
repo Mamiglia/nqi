@@ -7,6 +7,7 @@ from textual.widgets import Header, Footer, ListView, RichLog, Input, Label, Sta
 from textual.containers import Horizontal, Vertical, Container
 from textual.binding import Binding
 from textual.reactive import reactive
+from rich.text import Text
 
 from .logic import JobStatus, sanitize_ansi, get_job_command, get_job_status, get_nq_executable, run_nq_cmd, swap_jobs
 from .widgets import JobListItem
@@ -21,8 +22,9 @@ class NQX(App):
         Binding("K", "delete_job", "Kill"),
         Binding("k", "move_up", "Swap Up"),
         Binding("j", "move_down", "Swap Down"),
-        Binding("d", "restart_job", "Duplicate"),
+        Binding("d", "restart_job", "Re-enqueue"),
         Binding("c", "clear_logs", "Clean"),
+        Binding("y", "copy_log", "Copy Log"),
         Binding("!", "focus_input", "Command"),
         Binding("escape", "focus_list", "Back", show=False),
     ]
@@ -166,6 +168,7 @@ class NQX(App):
         log_path = os.path.join(self.nq_dir, self.selected_job)
         log_view = self.query_one("#log_view", RichLog)
         try:
+            status = get_job_status(log_path)
             size = os.path.getsize(log_path)
             pos = self.last_read_pos.get(self.selected_job, 0)
             if size < pos: pos = 0; log_view.clear()
@@ -181,6 +184,11 @@ class NQX(App):
                     self.last_read_pos[self.selected_job] = f.tell()
                     clean_text = sanitize_ansi(new_data.decode("utf-8", errors="replace"))
                     if clean_text: log_view.write(clean_text)
+            elif status == JobStatus.QUEUED and pos <= size:
+                # No output yet — show a waiting message
+                log_view.clear()
+                log_view.write(Text("Waiting in queue...", style="dim italic"))
+                self.last_read_pos[self.selected_job] = pos
         except Exception:
             pass
 
@@ -189,6 +197,24 @@ class NQX(App):
 
     def action_focus_list(self) -> None:
         self.query_one("#job_list").focus()
+
+    def action_copy_log(self) -> None:
+        """Copy the full log of the selected job to the clipboard."""
+        if not self.selected_job:
+            return
+        log_path = os.path.join(self.nq_dir, self.selected_job)
+        try:
+            with open(log_path, "r", errors="replace") as f:
+                f.readline()  # skip exec header
+                content = f.read()
+            content = sanitize_ansi(content).strip()
+            if content:
+                self.copy_to_clipboard(content)
+                self.notify("Log copied to clipboard.")
+            else:
+                self.notify("No log content to copy.", severity="warning")
+        except Exception:
+            self.notify("Failed to read log file.", severity="error")
 
     async def on_input_submitted(self, event: Input.Submitted) -> None:
         cmd = event.value.strip()
