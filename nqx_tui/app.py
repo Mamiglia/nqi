@@ -1,6 +1,7 @@
 import os
 import shlex
 import subprocess
+import time
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, RichLog, Input, Label, Static
 from textual.containers import Horizontal, Vertical, Container
@@ -27,6 +28,28 @@ class NQX(App):
     ]
 
     selected_job = reactive(None)
+
+    CONFIRM_TIMEOUT = 3.0  # seconds to confirm destructive actions
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._confirm_action = None  # name of action awaiting confirmation
+        self._confirm_time = 0.0     # timestamp of first press
+
+    def _require_confirmation(self, action_name: str, message: str, callback) -> None:
+        """First press shows a warning; second press within timeout executes."""
+        now = time.monotonic()
+        if (
+            self._confirm_action == action_name
+            and now - self._confirm_time < self.CONFIRM_TIMEOUT
+        ):
+            self._confirm_action = None
+            self._confirm_time = 0.0
+            callback()
+        else:
+            self._confirm_action = action_name
+            self._confirm_time = now
+            self.notify(message, severity="warning", timeout=self.CONFIRM_TIMEOUT)
 
     def compose(self) -> ComposeResult:
         yield Header()
@@ -206,14 +229,27 @@ class NQX(App):
 
     def action_delete_job(self) -> None:
         if self.selected_job:
-            job_list = self.query_one("#job_list")
-            self._target_index = job_list.index
-            subprocess.run([self.nq_path, "-k", self.selected_job])
-            self.refresh_jobs()
+            job_id = self.selected_job
+            def _do_kill():
+                job_list = self.query_one("#job_list")
+                self._target_index = job_list.index
+                subprocess.run([self.nq_path, "-k", job_id])
+                self.refresh_jobs()
+            self._require_confirmation(
+                "kill",
+                "Press K again to kill the selected job.",
+                _do_kill,
+            )
 
     def action_clear_logs(self) -> None:
-        for f in os.listdir(self.nq_dir):
-            if f.startswith(",") and get_job_status(os.path.join(self.nq_dir, f)) == JobStatus.FINISHED:
-                try: os.remove(os.path.join(self.nq_dir, f))
-                except: pass
-        self.refresh_jobs()
+        def _do_clean():
+            for f in os.listdir(self.nq_dir):
+                if f.startswith(",") and get_job_status(os.path.join(self.nq_dir, f)) == JobStatus.FINISHED:
+                    try: os.remove(os.path.join(self.nq_dir, f))
+                    except: pass
+            self.refresh_jobs()
+        self._require_confirmation(
+            "clean",
+            "Press c again to remove all finished jobs.",
+            _do_clean,
+        )
