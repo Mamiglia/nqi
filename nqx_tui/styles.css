@@ -80,6 +80,7 @@ ListView:focus > ListItem.-highlight Static {
 #log_view {
     background: black;
     color: #cccccc;
+    overflow-x: hidden;
     scrollbar-color: #333333;
     scrollbar-background: black;
     scrollbar-color-hover: #00ff00;
