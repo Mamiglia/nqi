@@ -1,27 +1,31 @@
 from textual.app import ComposeResult
 from textual.widgets import ListItem, Static
 
+from .logic import JobStatus
+
+_STATUS_BADGES = {
+    JobStatus.RUNNING:  "[bold #00ff00][[RUN]][/] ",
+    JobStatus.FINISHED: "[bold #666666][[FIN]][/] ",
+    JobStatus.QUEUED:   "[bold #ffff00][[QUE]][/] ",
+    JobStatus.UNKNOWN:  "[bold #ff0000][[???]][/] ",
+}
+
 class JobListItem(ListItem):
     """A list item representing an nq job with status badge."""
-    def __init__(self, job_id: str, status: str):
+    def __init__(self, job_id: str, status: JobStatus, display_name: str):
         super().__init__()
         self.job_id = job_id
         self.status = status
+        self.display_name = display_name
 
     def compose(self) -> ComposeResult:
-        yield Static(self.get_display_text(), id="job_label")
+        yield Static(self._display_text(), id="job_label")
 
-    def get_display_text(self) -> str:
-        if self.status == "Running":
-            badge = "[bold #00ff00][[RUN]][/] "  # Bright Green
-        elif self.status == "Finished":
-            badge = "[bold #666666][[FIN]][/] "  # Muted Gray
-        else:
-            badge = "[bold #ffff00][[QUE]][/] "  # Yellow
-        return f"{badge} {self.job_id}"
+    def _display_text(self) -> str:
+        badge = _STATUS_BADGES.get(self.status, _STATUS_BADGES[JobStatus.UNKNOWN])
+        return f"{badge} {self.display_name}"
 
-    def update_status(self, new_status: str):
+    def update_status(self, new_status: JobStatus):
         if self.status != new_status:
             self.status = new_status
-            label = self.query_one("#job_label", Static)
-            label.update(self.get_display_text())
+            self.query_one("#job_label", Static).update(self._display_text())
