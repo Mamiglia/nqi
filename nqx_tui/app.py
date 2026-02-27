@@ -64,7 +64,6 @@ class NQX(App):
         
         log_view = self.query_one("#log_view")
         log_view.can_focus = False
-        log_view.styles.overflow_x = "hidden"
 
     def on_key(self, event) -> None:
         """Suppress tab focus cycling."""
@@ -76,35 +75,37 @@ class NQX(App):
             files = sorted([f for f in os.listdir(self.nq_dir) if f.startswith(",")])
             job_list = self.query_one("#job_list", ListView)
             
-            # Record current state
-            current_id = self.selected_job
             current_widgets = list(job_list.children)
             current_ids = [getattr(w, "job_id", None) for w in current_widgets]
 
             if current_ids != files:
                 was_focused = job_list.has_focus
-                # Clear and rebuild
-                job_list.clear()
+
+                # Build new items before touching the DOM
+                new_items = []
                 for f in files:
                     path = os.path.join(self.nq_dir, f)
                     status = get_job_status(path)
                     cmd = get_job_command(path)
                     name = " ".join(cmd) if cmd else f
-                    job_list.append(JobListItem(f, status, name))
-                
-                # Determine the desired index
+                    new_items.append(JobListItem(f, status, name))
+
+                # Determine the desired index before clearing
                 if self._target_index is not None and files:
                     target = max(0, min(self._target_index, len(files) - 1))
                     self._target_index = None
-                elif current_id:
+                elif self.selected_job:
                     target = next(
-                        (i for i, item in enumerate(job_list.children) if item.job_id == current_id),
+                        (i for i, f in enumerate(files) if f == self.selected_job),
                         0 if files else None,
                     )
                 else:
                     target = 0 if files else None
-                
-                # Defer index assignment so the new items are mounted first
+
+                # Swap content in one batch — clear and mount together
+                job_list.clear()
+                job_list.mount_all(new_items)
+
                 def _restore(idx=target, focus=was_focused):
                     job_list.index = idx
                     if focus:
@@ -127,7 +128,7 @@ class NQX(App):
                 self.last_read_pos[self.selected_job] = 0
                 # Show the command as a fixed header
                 self.query_one("#log_header", Static).update(
-                    f"[bold #00ff00]$ {event.item.display_name}[/]"
+                    f"$ {event.item.display_name}"
                 )
                 self.update_log_tail()
                 self.query_one("#log_container").border_subtitle = self.selected_job

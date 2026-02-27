@@ -71,24 +71,27 @@ ListView:focus > ListItem.-highlight Static {
     color: black !important;
 }
 
-Log {
+#log_view {
     background: black;
     color: #cccccc;
 }
 
 #log_header {
+    width: 100%;
     height: auto;
     max-height: 3;
     background: black;
     color: #00ff00;
     text-style: bold;
-    padding: 1;
+    text-wrap: wrap;
+    padding: 0 1 1 1;
 }
 
 Input {
     background: black;
     border: none;
     color: #00ff00;
+    width: 1fr;
 }
 
 Input:focus { border: none; }
