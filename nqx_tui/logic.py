@@ -32,7 +32,7 @@ def get_job_status(path: str) -> JobStatus:
             except (BlockingIOError, IOError):
                 # If lock is held, check if the executable bit is set
                 return JobStatus.RUNNING if os.access(path, os.X_OK) else JobStatus.QUEUED
-    except:
+    except (OSError, ValueError):
         return JobStatus.UNKNOWN
 
 def get_nq_executable():
@@ -57,7 +57,7 @@ def get_job_command(path: str) -> list[str] | None:
             if line.startswith("exec "):
                 parts = shlex.split(line[5:])
                 return parts[1:] if (parts[0] == "nq" or parts[0].endswith("/nq")) else parts
-    except Exception:
+    except (OSError, ValueError):
         pass
     return None
 
@@ -92,7 +92,7 @@ def swap_jobs(nq_dir: str, job1_id: str, job2_id: str, current_files: list):
         subprocess.run([nq_path, "-k", jid])
         try:
             os.remove(path)
-        except:
+        except OSError:
             pass
     
     # Perform swap in the command list

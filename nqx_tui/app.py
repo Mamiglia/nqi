@@ -142,8 +142,8 @@ class NQX(App):
                     widget.update_status(status)
 
             self.query_one("#job_list_container").border_subtitle = f"{len(files)} total"
-        except Exception:
-            pass
+        except OSError as e:
+            self.notify(f"Failed to refresh jobs: {e}", severity="error")
 
     def on_list_view_highlighted(self, event: ListView.Highlighted) -> None:
         if event.item:
@@ -189,8 +189,8 @@ class NQX(App):
                 log_view.clear()
                 log_view.write(Text("Waiting in queue...", style="dim italic"))
                 self.last_read_pos[self.selected_job] = pos
-        except Exception:
-            pass
+        except OSError as e:
+            self.notify(f"Error reading log: {e}", severity="error")
 
     def action_focus_input(self) -> None:
         self.query_one("#command_input").focus()
@@ -269,10 +269,15 @@ class NQX(App):
 
     def action_clear_logs(self) -> None:
         def _do_clean():
+            removed = 0
             for f in os.listdir(self.nq_dir):
                 if f.startswith(",") and get_job_status(os.path.join(self.nq_dir, f)) == JobStatus.FINISHED:
-                    try: os.remove(os.path.join(self.nq_dir, f))
-                    except: pass
+                    try:
+                        os.remove(os.path.join(self.nq_dir, f))
+                        removed += 1
+                    except OSError:
+                        pass
+            self.notify(f"Removed {removed} finished job(s).")
             self.refresh_jobs()
         self._require_confirmation(
             "clean",
