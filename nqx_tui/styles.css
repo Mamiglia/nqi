@@ -1,21 +1,21 @@
 Screen {
-    background: #0f172a;
-    color: #f8fafc;
+    background: black;
+    color: #00ff00; /* Terminal Green */
 }
 
 #main_container {
     height: 1fr;
-    padding: 1 1 0 1;
+    padding: 1;
 }
 
 .pane {
-    background: #1e293b;
-    border: tall #334155;
+    background: black;
+    border: round #333333;
     height: 100%;
 }
 
 .pane:focus-within {
-    border: tall $primary;
+    border: round #00ff00;
 }
 
 #job_list_container { width: 35%; }
@@ -23,35 +23,37 @@ Screen {
 
 #command_pane {
     height: 3;
-    margin: 1;
-    border: tall #334155;
-    background: #1e293b;
+    margin: 1 1 0 1;
+    border: round #333333;
+    background: black;
 }
 
 #command_pane:focus-within {
-    border: tall $primary;
+    border: round #00ff00;
 }
 
 ListView {
-    background: transparent;
+    background: black;
     height: 100%;
 }
 
-/* Base style for all list items */
 ListItem {
     padding: 0;
-    background: transparent;
+    background: black;
     height: 1;
 }
 
-/* Support both modern (-) and older (--) textual highlight classes */
+/* Highlight when NOT focused */
 ListItem.-highlight, ListItem.--highlight {
-    background: #7c3aed !important; /* Rich violet when not focused */
+    background: #1a1a1a !important;
+    color: white !important;
 }
 
+/* Highlight when focused */
 ListView:focus > ListItem.-highlight,
 ListView:focus > ListItem.--highlight {
-    background: #2563eb !important; /* Bright blue when focused */
+    background: #00ff00 !important;
+    color: black !important;
 }
 
 #job_label {
@@ -60,21 +62,25 @@ ListView:focus > ListItem.--highlight {
 }
 
 /* Ensure label text is readable and background doesn't override */
-ListItem.-highlight Label, ListItem.--highlight Label {
-    color: white !important;
+ListItem.-highlight Static, ListItem.--highlight Static {
     text-style: bold;
     background: transparent !important;
 }
 
+ListView:focus > ListItem.-highlight Static,
+ListView:focus > ListItem.--highlight Static {
+    color: black !important;
+}
+
 Log {
-    background: transparent;
-    color: #cbd5e1;
+    background: black;
+    color: #cccccc;
 }
 
 Input {
-    background: transparent;
+    background: black;
     border: none;
-    color: white;
+    color: #00ff00;
 }
 
 Input:focus { border: none; }
@@ -86,7 +92,7 @@ Input:focus { border: none; }
 }
 
 #input_prompt {
-    color: $primary;
+    color: #00ff00;
     text-style: bold;
     padding: 0 1;
 }
