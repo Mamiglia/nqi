@@ -72,7 +72,7 @@ class NQX(App):
 
     def refresh_jobs(self) -> None:
         try:
-            files = sorted([f for f in os.listdir(self.nq_dir) if f.startswith(",")])
+            files = sorted([f for f in os.listdir(self.nq_dir) if f.startswith(",")], reverse=True)
             job_list = self.query_one("#job_list", ListView)
             
             current_widgets = list(job_list.children)
@@ -187,7 +187,7 @@ class NQX(App):
             self.notify("Can only swap queued jobs", severity="warning")
             return
         self._target_index = neighbor
-        swap_jobs(self.nq_dir, j1.job_id, j2.job_id, [w.job_id for w in job_list.children])
+        swap_jobs(self.nq_dir, j1.job_id, j2.job_id, list(reversed([w.job_id for w in job_list.children])))
         self.refresh_jobs()
 
     def action_move_down(self) -> None:
