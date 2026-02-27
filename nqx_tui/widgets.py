@@ -13,11 +13,11 @@ class JobListItem(ListItem):
 
     def get_display_text(self) -> str:
         if self.status == "Running":
-            badge = "[bold #00ff00][RUN][/] "  # Bright Green
+            badge = "[bold #00ff00][[RUN]][/] "  # Bright Green
         elif self.status == "Finished":
-            badge = "[bold #666666][FIN][/] "  # Muted Gray
+            badge = "[bold #666666][[FIN]][/] "  # Muted Gray
         else:
-            badge = "[bold #ffff00][QUE][/] "  # Yellow
+            badge = "[bold #ffff00][[QUE]][/] "  # Yellow
         return f"{badge} {self.job_id}"
 
     def update_status(self, new_status: str):
