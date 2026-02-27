@@ -1,0 +1,92 @@
+Screen {
+    background: #0f172a;
+    color: #f8fafc;
+}
+
+#main_container {
+    height: 1fr;
+    padding: 1 1 0 1;
+}
+
+.pane {
+    background: #1e293b;
+    border: tall #334155;
+    height: 100%;
+}
+
+.pane:focus-within {
+    border: tall $primary;
+}
+
+#job_list_container { width: 35%; }
+#log_container { width: 65%; }
+
+#command_pane {
+    height: 3;
+    margin: 1;
+    border: tall #334155;
+    background: #1e293b;
+}
+
+#command_pane:focus-within {
+    border: tall $primary;
+}
+
+ListView {
+    background: transparent;
+    height: 100%;
+}
+
+/* Base style for all list items */
+ListItem {
+    padding: 0;
+    background: transparent;
+    height: 1;
+}
+
+/* Support both modern (-) and older (--) textual highlight classes */
+ListItem.-highlight, ListItem.--highlight {
+    background: #7c3aed !important; /* Rich violet when not focused */
+}
+
+ListView:focus > ListItem.-highlight,
+ListView:focus > ListItem.--highlight {
+    background: #2563eb !important; /* Bright blue when focused */
+}
+
+#job_label {
+    width: 100%;
+    padding: 0 1;
+}
+
+/* Ensure label text is readable and background doesn't override */
+ListItem.-highlight Label, ListItem.--highlight Label {
+    color: white !important;
+    text-style: bold;
+    background: transparent !important;
+}
+
+Log {
+    background: transparent;
+    color: #cbd5e1;
+}
+
+Input {
+    background: transparent;
+    border: none;
+    color: white;
+}
+
+Input:focus { border: none; }
+
+#input_layout {
+    layout: horizontal;
+    height: 100%;
+    align: left middle;
+}
+
+#input_prompt {
+    color: $primary;
+    text-style: bold;
+    padding: 0 1;
+}
