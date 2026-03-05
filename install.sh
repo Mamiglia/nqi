@@ -96,6 +96,14 @@ pkg_install_nq() {
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
+# Detect local checkout vs. being piped from curl.
+# A local checkout has pyproject.toml / setup.py in SCRIPT_DIR.
+if [[ -f "${SCRIPT_DIR}/pyproject.toml" || -f "${SCRIPT_DIR}/setup.py" ]]; then
+    NQI_SRC="${SCRIPT_DIR}"
+else
+    NQI_SRC="git+https://github.com/mamiglia/nqi.git"
+fi
+
 # ── pre-flight checks ────────────────────────────────────────────────────────
 require python3
 
@@ -106,10 +114,10 @@ python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" \
 info "Installing nqi..."
 
 if command -v pipx >/dev/null 2>&1; then
-    pipx install --force "${SCRIPT_DIR}"
+    pipx install --force "${NQI_SRC}"
     ok "nqi installed via pipx"
 else
-    python3 -m pip install --user "${SCRIPT_DIR}"
+    python3 -m pip install --user "${NQI_SRC}"
     ok "nqi installed via pip --user"
 fi
 
@@ -142,9 +150,35 @@ else
         LIBEXEC_DIR="${HOME}/.local/lib/nqi/bin"
         mkdir -p "${BIN_DIR}" "${LIBEXEC_DIR}"
 
-        make -C "${SCRIPT_DIR}/nq" > /dev/null
+        # Resolve nq source: prefer local submodule, otherwise download tarball.
+        if [[ -f "${SCRIPT_DIR}/nq/nq.c" ]]; then
+            NQ_BUILD_DIR="${SCRIPT_DIR}/nq"
+        else
+            NQ_TAG="v1.0"
+            NQ_URL="https://github.com/leahneukirchen/nq/archive/refs/tags/${NQ_TAG}.tar.gz"
+            NQ_SHA256="d5b79a488a88f4e4d04184efa0bc116929baf9b34617af70d8debfb37f7431f4"
+            NQ_TMP="$(mktemp -d)"
+            trap 'rm -rf "${NQ_TMP}"' EXIT
+            info "Downloading nq source (${NQ_TAG})..."
+            require curl
+            curl -fsSL "${NQ_URL}" -o "${NQ_TMP}/nq.tar.gz"
+            if have_cmd sha256sum; then
+                echo "${NQ_SHA256}  ${NQ_TMP}/nq.tar.gz" | sha256sum -c - >/dev/null \
+                    || die "nq tarball checksum mismatch"
+            elif have_cmd shasum; then
+                echo "${NQ_SHA256}  ${NQ_TMP}/nq.tar.gz" | shasum -a 256 -c - >/dev/null \
+                    || die "nq tarball checksum mismatch"
+            else
+                warn "No sha256sum/shasum found; skipping checksum verification."
+            fi
+            tar -xzf "${NQ_TMP}/nq.tar.gz" -C "${NQ_TMP}"
+            NQ_BUILD_DIR="$(find "${NQ_TMP}" -maxdepth 1 -type d -name 'nq-*' | head -1)"
+            [[ -n "${NQ_BUILD_DIR}" ]] || die "Could not find extracted nq source directory."
+        fi
+
+        make -C "${NQ_BUILD_DIR}" > /dev/null
         for bin in nq nqtail nqterm; do
-            cp "${SCRIPT_DIR}/nq/${bin}" "${LIBEXEC_DIR}/${bin}"
+            cp "${NQ_BUILD_DIR}/${bin}" "${LIBEXEC_DIR}/${bin}"
             chmod +x "${LIBEXEC_DIR}/${bin}"
 
             cat > "${BIN_DIR}/${bin}" <<'EOF'
