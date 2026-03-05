@@ -7,19 +7,6 @@ Enqueue long-running commands with `nq` and manage them interactively: inspect
 logs, reorder the queue, kill or re-enqueue jobs, and clean up finished runs —
 all without leaving your terminal.
 
-```
-┌─────────────────────────────────────────────────────────┐
-│ nqi                                              q:Quit  │
-├──────────────────┬──────────────────────────────────────┤
-│ ● make all       │ [Running] make all                    │
-│ ○ ./benchmark    │                                       │
-│ ✓ nq sleep 60    │ gcc -O2 -o main main.c               │
-│                  │ Linking ...                           │
-│                  │                                       │
-├──────────────────┴──────────────────────────────────────┤
-│ K:Kill  k/j:Swap  d:Re-enqueue  c:Clean  y:Copy  !:Cmd  │
-└─────────────────────────────────────────────────────────┘
-```
 
 ## Features
 
@@ -52,12 +39,16 @@ all without leaving your terminal.
 curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | bash
 ```
 
-This clones the repo, compiles `nq`, installs `nq`/`nqtail`/`nqterm` wrappers to
-`~/.local/bin` (backed by upstream binaries in `~/.local/lib/nqi/bin`), and
-installs the `nqi` TUI via `pipx` (falling back to `pip --user`).
+This installs the `nqi` TUI via `pipx` (falling back to `pip --user`), then
+ensures `nq` utilities are available in this order:
 
-The wrappers set `NQDIR=~/.local/share/nq` when `NQDIR` is unset, so plain
-`nq ...` commands and `nqi` use the same default queue.
+1. Reuse existing `nq`/`nqtail`/`nqterm` already on `PATH`
+2. Try distro package manager install (`apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk`)
+3. Compile local fallback and install `nq`/`nqtail`/`nqterm` wrappers in `~/.local/bin`
+
+When local fallback wrappers are installed, they set
+`NQDIR=~/.local/share/nq` when unset, so plain `nq ...` commands and `nqi`
+use the same default queue.
 
 If `~/.local/bin` is not yet in your `PATH`, add this to your shell config
 (`~/.bashrc`, `~/.zshrc`, etc.):
@@ -77,7 +68,7 @@ pip install --user git+https://github.com/mamiglia/nqi.git
 ```
 
 `setup.py` automatically initialises the `nq` git submodule (or downloads the
-upstream tarball), compiles it, and bundles the binaries inside the wheel. If
+upstream tarball), compiles it, and bundles binaries inside the wheel. If
 compilation fails, `nqi` falls back to a system-installed `nq`.
 
 If you use a separately installed `nq` binary and want the same default queue
@@ -153,6 +144,10 @@ NQ_BIN=/opt/custom/nq nqi
 2. Bundled binary at `nqi/bin/nq` (compiled at install time)
 3. Local development build at `./nq/nq`
 4. System `PATH`
+
+`install.sh` resolution policy is different on purpose: it prefers your system
+`nq` (including distro packages) and only builds local wrappers as a last
+resort.
 
 ## Development
 
