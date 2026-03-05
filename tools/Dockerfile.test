@@ -45,24 +45,31 @@ FROM base AS test-installer
 RUN echo "=== Running install.sh ===" && \
     ./install.sh
 
-# Verify all expected binaries exist and are executable
-RUN echo "=== Checking binary availability ===" && \
-    for bin in nq nqtail nqterm nqi; do \
-        command -v "$bin" || { echo "FAIL: $bin not found in PATH"; exit 1; }; \
-        echo "  OK $bin -> $(command -v $bin)"; \
-    done
+# Verify the nqi entry-point is on PATH
+RUN command -v nqi || { echo "FAIL: nqi not found in PATH"; exit 1; }
 
-# Functional smoke-test: enqueue a job, wait, verify the log file was created
+# Verify setup.py compiled and bundled nq inside the package
+RUN python3 -c "\
+import importlib.util, os, sys; \
+spec = importlib.util.find_spec('nqi'); \
+pkg_dir = os.path.dirname(spec.origin); \
+bundled = os.path.join(pkg_dir, 'bin', 'nq'); \
+sys.exit(0 if os.path.isfile(bundled) else (print('FAIL: bundled nq not found at', bundled) or 1))"
+
+# Functional smoke-test: enqueue a job via the bundled binary, wait, verify
 RUN echo "=== Functional smoke-test ===" && \
-    export NQDIR=/tmp/nqtest && \
-    mkdir -p "$NQDIR" && \
-    nq echo "hello from nq" && \
-    # wait for the job to finish (nq -w blocks until all queued jobs finish)
-    nq -w && \
-    JOB_COUNT=$(ls "$NQDIR" | grep -c ',' || true) && \
-    echo "  Found ${JOB_COUNT} job log file(s) in ${NQDIR}" && \
-    [ "$JOB_COUNT" -ge 1 ] || { echo "FAIL: no job log file created"; exit 1; } && \
-    echo "  OK smoke-test passed"
+    python3 -c "\
+import subprocess, os, time, glob; \
+os.environ['NQDIR'] = '/tmp/nqtest'; \
+os.makedirs('/tmp/nqtest', exist_ok=True); \
+from nqi.logic import get_nq_executable; \
+nq = get_nq_executable(); \
+print('nq binary:', nq); \
+subprocess.check_call([nq, 'echo', 'hello from nq']); \
+subprocess.check_call([nq, '-w']); \
+logs = glob.glob('/tmp/nqtest/,*'); \
+assert logs, 'FAIL: no job log files'; \
+print('OK: job log created at', logs[0])"
 
 
 # ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
