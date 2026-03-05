@@ -111,9 +111,9 @@ nqx
 | Key | Action |
 |-----|--------|
 | `k` / `j` | Move the selected queued job up / down in the queue |
-| `K` | Kill the selected job (press twice within 3 s to confirm) |
-| `d` | Re-enqueue the selected finished job |
-| `c` | Delete all finished job log files in NQDIR |
+| `K` | Kill the selected job (press twice to confirm) |
+| `d` | Duplicate the selected job |
+| `c` | Clear all finished job log files in NQDIR |
 | `y` | Copy the selected job's log path to clipboard |
 | `!` | Open inline command input to enqueue an arbitrary command |
 | `Esc` | Return focus to the job list |

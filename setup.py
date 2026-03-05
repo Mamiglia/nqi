@@ -1,6 +1,6 @@
 """
-Custom setuptools build that compiles the nq C utilities and installs them
-alongside the nqx TUI.
+Custom setuptools build that compiles the nq C utilities and bundles them
+inside the nqx wheel (at nqx_tui/bin/).
 """
 
 import os
@@ -11,8 +11,6 @@ from pathlib import Path
 
 from setuptools import setup
 from setuptools.command.build_py import build_py as _build_py
-from setuptools.command.install import install as _install
-from setuptools.command.develop import develop as _develop
 
 NQ_BINARIES = ["nq", "nqtail", "nqterm"]
 NQ_SRC = Path(__file__).parent / "nq"
@@ -112,18 +110,6 @@ def bundle_binaries():
             dst.chmod(0o755)
 
 
-def install_binaries_to(scripts_dir: str):
-    """Copy compiled nq binaries to the given scripts directory (e.g. ~/.local/bin)."""
-    os.makedirs(scripts_dir, exist_ok=True)
-    for binary in NQ_BINARIES:
-        src = NQ_SRC / binary
-        if src.exists():
-            dst = os.path.join(scripts_dir, binary)
-            shutil.copy2(str(src), dst)
-            os.chmod(dst, 0o755)
-            print(f"  installed {dst}")
-
-
 class build_py(_build_py):
     """Compile nq and bundle the binaries into the package before assembling the wheel."""
 
@@ -133,28 +119,8 @@ class build_py(_build_py):
         super().run()
 
 
-class install(_install):
-    """After a normal install, also drop nq/nqtail/nqterm next to the nqx script."""
-
-    def run(self):
-        super().run()
-        compile_nq()
-        install_binaries_to(self.install_scripts)
-
-
-class develop(_develop):
-    """Same as install but for editable/develop mode."""
-
-    def run(self):
-        super().run()
-        compile_nq()
-        install_binaries_to(self.script_dir)
-
-
 setup(
     cmdclass={
         "build_py": build_py,
-        "install": install,
-        "develop": develop,
     },
 )

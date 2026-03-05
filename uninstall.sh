@@ -17,11 +17,11 @@ warn()  { printf '\033[1;33mwarn\033[0m %s\n' "$*" >&2; }
 # ── uninstall nqx Python package ──────────────────────────────────────────────
 info "Uninstalling nqx..."
 
-if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q nqx; then
-    pipx uninstall nqx
+if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q nqx-tui; then
+    pipx uninstall nqx-tui
     ok "nqx removed via pipx"
-elif python3 -m pip show nqx >/dev/null 2>&1; then
-    python3 -m pip uninstall -y nqx
+elif python3 -m pip show nqx-tui >/dev/null 2>&1; then
+    python3 -m pip uninstall -y nqx-tui
     ok "nqx removed via pip"
 else
     warn "nqx Python package not found, skipping"
