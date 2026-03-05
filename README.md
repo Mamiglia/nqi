@@ -1,6 +1,6 @@
-# nqx
+# nqy
 
-**nqx** is a [Textual](https://textual.textualize.io/) terminal UI for
+**nqy** is a [Textual](https://textual.textualize.io/) terminal UI for
 [nq](https://github.com/leahneukirchen/nq) — a minimal, daemon-free Unix job queue built on `flock(2)`.
 
 Enqueue long-running commands with `nq` and manage them interactively: inspect
@@ -9,7 +9,7 @@ all without leaving your terminal.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ nqx                                              q:Quit  │
+│ nqy                                              q:Quit  │
 ├──────────────────┬──────────────────────────────────────┤
 │ ● make all       │ [Running] make all                    │
 │ ○ ./benchmark    │                                       │
@@ -49,11 +49,11 @@ all without leaving your terminal.
 ### Recommended — one-line installer
 
 Clone the repository and run the installer script.
-It installs `nqx` via `pipx` (falling back to `pip --user`). The installation process automatically fetches and compiles [nq](https://github.com/leahneukirchen/nq), and installs the binaries (`nq`, `nqtail`, `nqterm`) to `~/.local/bin`.
+It installs `nqy` via `pipx` (falling back to `pip --user`). The installation process automatically fetches and compiles [nq](https://github.com/leahneukirchen/nq), and installs the binaries (`nq`, `nqtail`, `nqterm`) to `~/.local/bin`.
 
 ```bash
-git clone https://github.com/youruser/nqx.git
-cd nqx
+git clone https://github.com/youruser/nqy.git
+cd nqy
 ./install.sh
 ```
 
@@ -69,26 +69,26 @@ export PATH="${HOME}/.local/bin:${PATH}"
 
 ```bash
 # isolated env — recommended
-pipx install git+https://github.com/youruser/nqx.git
+pipx install git+https://github.com/youruser/nqy.git
 
 # or into your user site-packages
-pip install --user git+https://github.com/youruser/nqx.git
+pip install --user git+https://github.com/youruser/nqy.git
 ```
 
 `setup.py` will automatically initialise the `nq` git submodule (or download
 the nq source tarball if not in a git working tree). When `make` and a C
 compiler are available it compiles `nq` and bundles the binaries inside the
-wheel. If compilation fails, `nqx` falls back to a system-installed `nq`.
+wheel. If compilation fails, `nqy` falls back to a system-installed `nq`.
 
-### Manual (system-wide install of nq + user install of nqx)
+### Manual (system-wide install of nq + user install of nqy)
 
 ```bash
-git clone --recurse-submodules https://github.com/youruser/nqx.git
-cd nqx/nq
+git clone --recurse-submodules https://github.com/youruser/nqy.git
+cd nqy/nq
 make
 sudo make install        # installs nq to /usr/local/bin
 cd ..
-pip install --user .     # installs nqx TUI
+pip install --user .     # installs nqy TUI
 ```
 
 ## Usage
@@ -103,7 +103,7 @@ nq sleep 60
 nqtail
 
 # Open the interactive TUI (reads the same NQDIR as nq)
-nqx
+nqy
 ```
 
 ### TUI keyboard shortcuts
@@ -127,25 +127,25 @@ a different directory (useful for per-project or per-purpose queues):
 ```bash
 # download queue
 NQDIR=/tmp/downloads nq wget https://example.com/big.iso
-NQDIR=/tmp/downloads nqx
+NQDIR=/tmp/downloads nqy
 
 # per-project queue stored inside the project
 export NQDIR="$PWD/.nq"
 nq make test
-nqx
+nqy
 ```
 
-### Pointing nqx at a custom nq binary
+### Pointing nqy at a custom nq binary
 
 ```bash
-NQ_BIN=/opt/custom/nq nqx
+NQ_BIN=/opt/custom/nq nqy
 ```
 
 ## Development
 
 ```bash
-git clone --recurse-submodules https://github.com/youruser/nqx.git
-cd nqx
+git clone --recurse-submodules https://github.com/youruser/nqy.git
+cd nqy
 
 # Build the C utilities (nq is a git submodule — already fetched above)
 cd nq && make && cd ..
@@ -158,21 +158,21 @@ source .venv/bin/activate
 pip install -e .
 
 # Run the TUI directly
-python nqx.py
+python nqy.py
 ```
 
 ### Project layout
 
 ```
-nqx/
+nqy/
 ├── nq/                  # git submodule → github.com/leahneukirchen/nq
-├── nqx_tui/
+├── nqy/
 │   ├── app.py           # Textual App — layout, bindings, event handling
 │   ├── logic.py         # job-file parsing, flock-based status detection
 │   ├── widgets.py       # custom Textual widgets (JobListItem, …)
 │   ├── styles.css       # Textual CSS
 │   └── bin/             # compiled nq binaries bundled at install time
-├── nqx.py               # entry-point shim (sets NQDIR default, runs App)
+├── nqy.py               # entry-point shim (sets NQDIR default, runs App)
 ├── setup.py             # custom build that compiles nq during pip install
 ├── pyproject.toml
 └── install.sh           # one-shot shell installer
@@ -180,10 +180,10 @@ nqx/
 
 ### nq binary lookup order
 
-`nqx` finds the `nq` binary using the following fallback chain:
+`nqy` finds the `nq` binary using the following fallback chain:
 
 1. `NQ_BIN` environment variable
-2. Bundled binary at `nqx_tui/bin/nq` (compiled at install time)
+2. Bundled binary at `nqy/bin/nq` (compiled at install time)
 3. Local development build at `./nq/nq`
 4. System `PATH`
 
@@ -203,5 +203,5 @@ for details.
 
 ## License
 
-- `nqx` TUI — [MIT](LICENSE)
+- `nqy` TUI — [MIT](LICENSE)
 - `nq` C utilities — Public Domain ([CC0](http://creativecommons.org/publicdomain/zero/1.0/))

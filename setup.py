@@ -1,6 +1,6 @@
 """
 Custom setuptools build that compiles the nq C utilities and bundles them
-inside the nqx wheel (at nqx_tui/bin/).
+inside the nqy wheel (at nqy/bin/).
 """
 
 import os
@@ -14,7 +14,7 @@ from setuptools.command.build_py import build_py as _build_py
 
 NQ_BINARIES = ["nq", "nqtail", "nqterm"]
 NQ_SRC = Path(__file__).parent / "nq"
-BIN_DEST = Path(__file__).parent / "nqx_tui" / "bin"
+BIN_DEST = Path(__file__).parent / "nqy" / "bin"
 # Upstream nq repo – used as a fallback when the submodule isn't initialised
 # and we're not inside a git working tree (e.g. a pip sdist install).
 NQ_UPSTREAM = "https://github.com/leahneukirchen/nq/archive/refs/heads/master.tar.gz"
@@ -79,7 +79,7 @@ def ensure_nq_submodule():
     except Exception as exc:
         print(f"Warning: Could not download nq source ({exc}).", file=sys.stderr)
 
-    print("Warning: nq source unavailable; nqx will fall back to a system-installed nq.",
+    print("Warning: nq source unavailable; nqy will fall back to a system-installed nq.",
           file=sys.stderr)
 
 
@@ -95,12 +95,12 @@ def compile_nq():
         return True
     except (subprocess.CalledProcessError, FileNotFoundError) as exc:
         print(f"Warning: Could not build nq utilities ({exc}).", file=sys.stderr)
-        print("nqx will fall back to a system-installed nq if available.", file=sys.stderr)
+        print("nqy will fall back to a system-installed nq if available.", file=sys.stderr)
         return False
 
 
 def bundle_binaries():
-    """Copy compiled nq binaries into nqx_tui/bin/ so they travel with the wheel."""
+    """Copy compiled nq binaries into nqy/bin/ so they travel with the wheel."""
     BIN_DEST.mkdir(exist_ok=True)
     for binary in NQ_BINARIES:
         src = NQ_SRC / binary

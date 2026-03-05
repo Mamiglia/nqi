@@ -3,7 +3,7 @@ requires = ["setuptools>=42", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "nqx-tui"
+name = "nqy"
 version = "0.1.0"
 description = "A Textual TUI for the nq job scheduler"
 readme = "README.md"
@@ -13,10 +13,10 @@ dependencies = [
 ]
 
 [project.scripts]
-nqx = "nqx_tui.app:main"
+nqy = "nqy.app:main"
 
 [tool.setuptools.packages.find]
-include = ["nqx_tui*"]
+include = ["nqy*"]
 
 [tool.setuptools.package-data]
-nqx_tui = ["bin/*", "*.css"]
+nqy = ["bin/*", "*.css"]

@@ -11,9 +11,9 @@ from rich.text import Text
 from .logic import JobStatus, sanitize_ansi, get_job_command, get_job_status, kill_job, run_nq_cmd, swap_jobs
 from .widgets import JobListItem
 
-class NQX(App):
-    """The main nqx application interface."""
-    TITLE = "nqx"
+class NQY(App):
+    """The main nqy application interface."""
+    TITLE = "nqy"
     CSS_PATH = "styles.css"
     ENABLE_COMMAND_PALETTE = False
 
@@ -292,7 +292,7 @@ def main():
         nq_dir = os.path.expanduser("~/.local/share/nq")
         os.makedirs(nq_dir, exist_ok=True)
         os.environ["NQDIR"] = nq_dir
-    app = NQX()
+    app = NQY()
     app.run()
 
 if __name__ == "__main__":

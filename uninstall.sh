@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# uninstall.sh – Uninstall nqx (TUI) + nq/nqtail/nqterm (C utilities)
+# uninstall.sh – Uninstall nqy (TUI) + nq/nqtail/nqterm (C utilities)
 #
 # Usage:
 #   ./uninstall.sh
@@ -14,17 +14,17 @@ info()  { printf '\033[1;34m==> \033[0m%s\n' "$*"; }
 ok()    { printf '\033[1;32m ok \033[0m%s\n' "$*"; }
 warn()  { printf '\033[1;33mwarn\033[0m %s\n' "$*" >&2; }
 
-# ── uninstall nqx Python package ──────────────────────────────────────────────
-info "Uninstalling nqx..."
+# ── uninstall nqy Python package ──────────────────────────────────────────────
+info "Uninstalling nqy..."
 
-if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q nqx-tui; then
-    pipx uninstall nqx-tui
-    ok "nqx removed via pipx"
-elif python3 -m pip show nqx-tui >/dev/null 2>&1; then
-    python3 -m pip uninstall -y nqx-tui
-    ok "nqx removed via pip"
+if command -v pipx >/dev/null 2>&1 && pipx list 2>/dev/null | grep -q nqy; then
+    pipx uninstall nqy
+    ok "nqy removed via pipx"
+elif python3 -m pip show nqy >/dev/null 2>&1; then
+    python3 -m pip uninstall -y nqy
+    ok "nqy removed via pip"
 else
-    warn "nqx Python package not found, skipping"
+    warn "nqy Python package not found, skipping"
 fi
 
 # ── remove nq C utilities ─────────────────────────────────────────────────────
@@ -51,4 +51,4 @@ if [ -d "${NQ_DIR}" ]; then
 fi
 
 echo
-echo "  nqx has been uninstalled."
+echo "  nqy has been uninstalled."

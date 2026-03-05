@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh – Install nqx (TUI) + nq/nqtail/nqterm (C utilities)
+# install.sh – Install nqy (TUI) + nq/nqtail/nqterm (C utilities)
 #
 # Usage:
 #   ./install.sh
@@ -28,19 +28,19 @@ fi
 python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" \
     || die "Python 3.8 or newer is required."
 
-# ── install nqx (setup.py compiles and bundles nq into the wheel) ─────────────
-info "Installing nqx..."
+# ── install nqy (setup.py compiles and bundles nq into the wheel) ─────────────
+info "Installing nqy..."
 
 if command -v pipx >/dev/null 2>&1; then
     pipx install --force "${SCRIPT_DIR}"
-    ok "nqx installed via pipx"
+    ok "nqy installed via pipx"
 else
     python3 -m pip install --user "${SCRIPT_DIR}"
-    ok "nqx installed via pip --user"
+    ok "nqy installed via pip --user"
 fi
 
 # ── install nq C utilities to ~/.local/bin ────────────────────────────────────
-# The wheel bundles nq inside nqx_tui/bin/ (so nqx always finds it), but we
+# The wheel bundles nq inside nqy/bin/ (so nqy always finds it), but we
 # also install standalone copies so users can run `nq`, `nqtail`, etc. directly.
 info "Installing nq C utilities to ~/.local/bin..."
 make -C "${SCRIPT_DIR}/nq" > /dev/null
@@ -67,5 +67,5 @@ if [[ ":${PATH}:" != *":${INSTALL_DIR}:"* ]]; then
 fi
 
 echo
-echo "  Run:  nqx         – open the TUI"
+echo "  Run:  nqy         – open the TUI"
 echo "        nq <cmd>    – enqueue a job"

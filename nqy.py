@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """
-Development shim for nqx.
+Development shim for nqy.
 """
-from nqx_tui.app import main
+from nqy.app import main
 
 if __name__ == "__main__":
     main()
