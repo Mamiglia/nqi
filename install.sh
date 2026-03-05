@@ -39,16 +39,32 @@ else
     ok "nqy installed via pip --user"
 fi
 
-# ── install nq C utilities to ~/.local/bin ────────────────────────────────────
-# The wheel bundles nq inside nqy/bin/ (so nqy always finds it), but we
-# also install standalone copies so users can run `nq`, `nqtail`, etc. directly.
-info "Installing nq C utilities to ~/.local/bin..."
+# ── install nq C utilities + wrappers ─────────────────────────────────────────
+# Keep upstream binaries unmodified under ~/.local/lib/nqy/bin, and expose
+# lightweight wrappers in ~/.local/bin that set a shared default NQDIR.
+info "Installing nq C utilities and wrappers..."
 make -C "${SCRIPT_DIR}/nq" > /dev/null
-mkdir -p "${HOME}/.local/bin"
+
+BIN_DIR="${HOME}/.local/bin"
+LIBEXEC_DIR="${HOME}/.local/lib/nqy/bin"
+mkdir -p "${BIN_DIR}" "${LIBEXEC_DIR}"
+
 for bin in nq nqtail nqterm; do
-    cp "${SCRIPT_DIR}/nq/${bin}" "${HOME}/.local/bin/${bin}"
-    chmod +x "${HOME}/.local/bin/${bin}"
-    ok "installed ${HOME}/.local/bin/${bin}"
+    cp "${SCRIPT_DIR}/nq/${bin}" "${LIBEXEC_DIR}/${bin}"
+    chmod +x "${LIBEXEC_DIR}/${bin}"
+
+    cat > "${BIN_DIR}/${bin}" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+
+: "${NQDIR:=${HOME}/.local/share/nq}"
+export NQDIR
+
+exec "${HOME}/.local/lib/nqy/bin/__BIN__" "$@"
+EOF
+    sed -i "s/__BIN__/${bin}/g" "${BIN_DIR}/${bin}"
+    chmod +x "${BIN_DIR}/${bin}"
+    ok "installed ${BIN_DIR}/${bin} (wrapper)"
 done
 
 # ── post-install setup ────────────────────────────────────────────────────────

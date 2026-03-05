@@ -1,0 +1,85 @@
+# Dockerfile.test
+#
+# Smoke-tests the nqy installation pipeline in a clean Docker environment.
+# Two build stages are provided; select with --target:
+#
+#   docker build --target test-installer -t nqy-test-installer .
+#   docker build --target test-pip       -t nqy-test-pip       .
+#
+# Or use ./tools/test-install.sh which drives both automatically.
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Shared base: Ubuntu LTS with build prerequisites
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FROM ubuntu:24.04 AS base
+
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -q && \
+    apt-get install -y -q --no-install-recommends \
+        gcc make libc6-dev python3 python3-pip pipx git curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Ensure ~/.local/bin is on PATH for the root user in the container
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /src
+COPY . .
+# Initialise the nq submodule if it wasn't already populated by the host
+# (e.g. when building from a shallow/non-recursive clone or an sdist).
+RUN if [ ! -f nq/nq.c ]; then \
+        mkdir -p nq; \
+        if [ -d .git ] && git submodule update --init -- nq 2>/dev/null; then \
+            echo "nq submodule initialised"; \
+        else \
+            echo "git submodule failed or not a submodule, downloading via curl..."; \
+            curl -fsSL https://github.com/leahneukirchen/nq/archive/refs/heads/master.tar.gz \
+            | tar -xz --strip-components=1 -C nq; \
+        fi; \
+    fi
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Stage 1: test the install.sh one-liner
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FROM base AS test-installer
+
+RUN echo "=== Running install.sh ===" && \
+    ./install.sh
+
+# Verify all expected binaries exist and are executable
+RUN echo "=== Checking binary availability ===" && \
+    for bin in nq nqtail nqterm nqy; do \
+        command -v "$bin" || { echo "FAIL: $bin not found in PATH"; exit 1; }; \
+        echo "  OK $bin -> $(command -v $bin)"; \
+    done
+
+# Functional smoke-test: enqueue a job, wait, verify the log file was created
+RUN echo "=== Functional smoke-test ===" && \
+    export NQDIR=/tmp/nqtest && \
+    mkdir -p "$NQDIR" && \
+    nq echo "hello from nq" && \
+    # wait for the job to finish (nq -w blocks until all queued jobs finish)
+    nq -w && \
+    JOB_COUNT=$(ls "$NQDIR" | grep -c ',' || true) && \
+    echo "  Found ${JOB_COUNT} job log file(s) in ${NQDIR}" && \
+    [ "$JOB_COUNT" -ge 1 ] || { echo "FAIL: no job log file created"; exit 1; } && \
+    echo "  OK smoke-test passed"
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+# Stage 2: test pip install (no install.sh, no pre-built bins)
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+FROM base AS test-pip
+
+RUN echo "=== pip install . ===" && \
+    pip3 install --break-system-packages .
+
+# Verify the nqy entry-point was created
+RUN command -v nqy || { echo "FAIL: nqy not found in PATH"; exit 1; }
+
+# The setup.py build_py step should have compiled and bundled nq
+RUN python3 -c "import importlib.util, os, sys; spec = importlib.util.find_spec('nqy'); pkg_dir = os.path.dirname(spec.origin); bundled = os.path.join(pkg_dir, 'bin', 'nq'); sys.exit(0 if os.path.isfile(bundled) else (print('FAIL: bundled nq not found at', bundled) or 1))"
+
+# Functional smoke-test using the bundled binary via the Python API
+RUN python3 -c "import subprocess, os, time, glob; os.environ['NQDIR'] = '/tmp/nqtest'; os.makedirs('/tmp/nqtest', exist_ok=True); from nqy.logic import get_nq_executable; nq = get_nq_executable(); print('nq binary:', nq); subprocess.check_call([nq, 'echo', 'hello from pip-installed nq']); time.sleep(0.5); logs = glob.glob('/tmp/nqtest/,*'); assert logs, 'FAIL: no job log files'; print('OK: job log created at', logs[0])"
+
+RUN python3 -c "from nqy.app import NQY; print('OK nqy.app imported')"
