@@ -1,6 +1,5 @@
 import os
 import shlex
-import subprocess
 import time
 from textual.app import App, ComposeResult
 from textual.widgets import Header, Footer, ListView, RichLog, Input, Label, Static
@@ -9,7 +8,7 @@ from textual.binding import Binding
 from textual.reactive import reactive
 from rich.text import Text
 
-from .logic import JobStatus, sanitize_ansi, get_job_command, get_job_status, get_nq_executable, run_nq_cmd, swap_jobs
+from .logic import JobStatus, sanitize_ansi, get_job_command, get_job_status, kill_job, run_nq_cmd, swap_jobs
 from .widgets import JobListItem
 
 class NQX(App):
@@ -77,7 +76,6 @@ class NQX(App):
         default_nq_dir = os.path.expanduser("~/.local/share/nq")
         self.nq_dir = os.path.abspath(os.environ.get("NQDIR", default_nq_dir))
         os.makedirs(self.nq_dir, exist_ok=True)
-        self.nq_path = get_nq_executable()
         self.last_read_pos = {} 
         self._target_index = None
         self.refresh_jobs()
@@ -261,7 +259,7 @@ class NQX(App):
             def _do_kill():
                 job_list = self.query_one("#job_list")
                 self._target_index = job_list.index
-                subprocess.run([self.nq_path, "-k", job_id])
+                kill_job(job_id)
                 self.refresh_jobs()
             self._require_confirmation(
                 "kill",
@@ -286,3 +284,16 @@ class NQX(App):
             "Press c again to remove all finished jobs.",
             _do_clean,
         )
+
+def main():
+    # Default NQDIR to ~/.local/share/nq so jobs are stored in a persistent
+    # user-owned directory instead of the current working directory.
+    if "NQDIR" not in os.environ:
+        nq_dir = os.path.expanduser("~/.local/share/nq")
+        os.makedirs(nq_dir, exist_ok=True)
+        os.environ["NQDIR"] = nq_dir
+    app = NQX()
+    app.run()
+
+if __name__ == "__main__":
+    main()

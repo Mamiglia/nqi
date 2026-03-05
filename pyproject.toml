@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nqx = "nqx:main"
+nqx = "nqx_tui.app:main"
 
 [tool.setuptools.packages.find]
 include = ["nqx_tui*"]

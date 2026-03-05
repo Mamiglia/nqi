@@ -2,6 +2,7 @@ import os
 import fcntl
 import re
 import shlex
+import signal
 import subprocess
 import time
 from enum import Enum
@@ -35,31 +36,55 @@ def get_job_status(path: str) -> JobStatus:
     except (OSError, ValueError):
         return JobStatus.UNKNOWN
 
-def get_nq_executable():
-    """Returns the absolute path to the nq binary.
+def get_job_pid(job_id: str) -> int | None:
+    """Extracts the PID from an nq job filename (`,TIMESTAMP.PID`)."""
+    dot = job_id.rfind(".")
+    if dot == -1:
+        return None
+    try:
+        return int(job_id[dot + 1:])
+    except ValueError:
+        return None
+
+def kill_job(job_id: str) -> None:
+    """Kills a running or queued nq job by sending SIGTERM to its PID."""
+    pid = get_job_pid(job_id)
+    if pid is None:
+        return
+    try:
+        os.kill(pid, signal.SIGTERM)
+    except ProcessLookupError:
+        pass  # process already exited
+
+def get_binary_path(name="nq"):
+    """Returns the absolute path to an nq utility binary.
 
     Search order:
-    1. NQ_BIN environment variable (explicit override).
-    2. Bundled binary in nqx_tui/bin/nq (compiled at install time by setup.py).
-    3. Local development build at ./nq/nq.
-    4. System PATH (e.g. if the user already has nq installed).
+    1. If name is 'nq', check NQ_BIN environment variable.
+    2. Bundled binary in nqx_tui/bin/{name} (compiled at install time by setup.py).
+    3. Local development build at ./nq/{name}.
+    4. System PATH.
     """
-    env_nq = os.environ.get("NQ_BIN")
-    if env_nq and os.path.isfile(env_nq):
-        return env_nq
+    if name == "nq":
+        env_nq = os.environ.get("NQ_BIN")
+        if env_nq and os.path.isfile(env_nq):
+            return env_nq
 
-    # Binary bundled inside the installed package (nqx_tui/bin/nq)
-    bundled_nq = os.path.join(os.path.dirname(__file__), "bin", "nq")
-    if os.path.isfile(bundled_nq):
-        return bundled_nq
+    # Binary bundled inside the installed package (nqx_tui/bin/...)
+    bundled = os.path.join(os.path.dirname(__file__), "bin", name)
+    if os.path.isfile(bundled):
+        return bundled
 
     # Local development tree
-    local_nq = os.path.abspath("./nq/nq")
-    if os.path.isfile(local_nq):
-        return local_nq
+    local_path = os.path.abspath(f"./nq/{name}")
+    if os.path.isfile(local_path):
+        return local_path
 
     # Fallback to system PATH
-    return "nq"
+    return name
+
+def get_nq_executable():
+    return get_binary_path("nq")
 
 def get_job_command(path: str) -> list[str] | None:
     """Reads the command from a job file's first line (exec ...)."""
@@ -81,8 +106,7 @@ def run_nq_cmd(args: list):
 
 def swap_jobs(nq_dir: str, job1_id: str, job2_id: str, current_files: list):
     """Swaps two queued jobs by re-enqueuing affected tasks."""
-    nq_path = get_nq_executable()
-    
+
     # Find indices in the current list
     idx1 = current_files.index(job1_id)
     idx2 = current_files.index(job2_id)
@@ -101,7 +125,7 @@ def swap_jobs(nq_dir: str, job1_id: str, job2_id: str, current_files: list):
             commands.append(cmd)
 
         # Kill and remove old job
-        subprocess.run([nq_path, "-k", jid])
+        kill_job(jid)
         try:
             os.remove(path)
         except OSError:
