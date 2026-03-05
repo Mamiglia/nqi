@@ -7,7 +7,6 @@
 set -euo pipefail
 
 NQ_DIR="${HOME}/.local/share/nq"
-BIN_DIR="${HOME}/.local/bin"
 
 # ── helpers ────────────────────────────────────────────────────────────────────
 info()  { printf '\033[1;34m==> \033[0m%s\n' "$*"; }
@@ -27,16 +26,33 @@ else
     warn "nqi Python package not found, skipping"
 fi
 
-# ── remove nq C utilities ─────────────────────────────────────────────────────
-info "Removing nq C utilities..."
+# ── remove legacy files from old install.sh ───────────────────────────────────
+# Previous versions created wrapper scripts and compiled binaries here.
 for bin in nq nqtail nqterm; do
-    if [ -f "${BIN_DIR}/${bin}" ]; then
-        rm "${BIN_DIR}/${bin}"
-        ok "removed ${BIN_DIR}/${bin}"
-    else
-        warn "${BIN_DIR}/${bin} not found, skipping"
+    wrapper="${HOME}/.local/bin/${bin}"
+    if [ -f "${wrapper}" ]; then
+        rm -f "${wrapper}"
+        ok "removed ${wrapper}"
     fi
 done
+
+LIBEXEC_DIR="${HOME}/.local/lib/nqi"
+if [ -d "${LIBEXEC_DIR}" ]; then
+    rm -rf "${LIBEXEC_DIR}"
+    ok "removed legacy ${LIBEXEC_DIR}"
+fi
+
+# ── check for NQDIR in shell rc ──────────────────────────────────────────────
+case "${SHELL:-}" in
+    */zsh)  RC_FILE="${HOME}/.zshrc" ;;
+    */bash) RC_FILE="${HOME}/.bashrc" ;;
+    *)      RC_FILE="${HOME}/.profile" ;;
+esac
+
+if grep -qF 'NQDIR' "${RC_FILE}" 2>/dev/null; then
+    warn "Your ${RC_FILE} contains an NQDIR export. You may want to remove it:"
+    grep -n 'NQDIR' "${RC_FILE}"
+fi
 
 # ── optionally remove job directory ───────────────────────────────────────────
 if [ -d "${NQ_DIR}" ]; then
