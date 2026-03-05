@@ -46,15 +46,29 @@ def get_job_pid(job_id: str) -> int | None:
     except ValueError:
         return None
 
-def kill_job(job_id: str) -> None:
-    """Kills a running or queued nq job by sending SIGTERM to its PID."""
+def kill_job(job_id: str, nq_dir: str | None = None) -> bool:
+    """Kill an active nq job by sending SIGTERM to its PID.
+
+    Returns True only when SIGTERM was actually sent.
+    If nq_dir is provided, only queued/running jobs are eligible.
+    """
     pid = get_job_pid(job_id)
-    if pid is None:
-        return
+    if pid is None or pid <= 1:
+        return False
+
+    if nq_dir is not None:
+        path = os.path.join(nq_dir, job_id)
+        status = get_job_status(path)
+        if status not in (JobStatus.RUNNING, JobStatus.QUEUED):
+            return False
+
     try:
         os.kill(pid, signal.SIGTERM)
+        return True
     except ProcessLookupError:
-        pass  # process already exited
+        return False  # process already exited
+    except PermissionError:
+        return False
 
 def get_binary_path(name="nq"):
     """Returns the absolute path to an nq utility binary.
@@ -125,7 +139,7 @@ def swap_jobs(nq_dir: str, job1_id: str, job2_id: str, current_files: list):
             commands.append(cmd)
 
         # Kill and remove old job
-        kill_job(jid)
+        kill_job(jid, nq_dir)
         try:
             os.remove(path)
         except OSError:

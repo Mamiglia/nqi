@@ -256,10 +256,17 @@ class NQY(App):
     def action_delete_job(self) -> None:
         if self.selected_job:
             job_id = self.selected_job
+            status = get_job_status(os.path.join(self.nq_dir, job_id))
+            if status not in (JobStatus.RUNNING, JobStatus.QUEUED):
+                # self.notify("Can only kill queued or running jobs", severity="warning")
+                return
+
             def _do_kill():
                 job_list = self.query_one("#job_list")
                 self._target_index = job_list.index
-                kill_job(job_id)
+                if not kill_job(job_id, self.nq_dir):
+                    # self.notify("Job is no longer killable", severity="warning")
+                    pass
                 self.refresh_jobs()
             self._require_confirmation(
                 "kill",
