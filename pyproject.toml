@@ -1,11 +1,11 @@
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "nqx-tui"
 version = "0.1.0"
-description = "A Textual TUI for the nq job queue"
+description = "A Textual TUI for the nq job scheduler"
 readme = "README.md"
 requires-python = ">=3.8"
 dependencies = [
@@ -15,5 +15,8 @@ dependencies = [
 [project.scripts]
 nqx = "nqx:main"
 
-[tool.hatch.build.targets.wheel]
-packages = ["nqx_tui"]
+[tool.setuptools.packages.find]
+include = ["nqx_tui*"]
+
+[tool.setuptools.package-data]
+nqx_tui = ["bin/*", "*.css"]

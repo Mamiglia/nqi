@@ -36,16 +36,28 @@ def get_job_status(path: str) -> JobStatus:
         return JobStatus.UNKNOWN
 
 def get_nq_executable():
-    """Returns the absolute path to the nq binary."""
-    # Priority: Env var > local nq/nq > system PATH
+    """Returns the absolute path to the nq binary.
+
+    Search order:
+    1. NQ_BIN environment variable (explicit override).
+    2. Bundled binary in nqx_tui/bin/nq (compiled at install time by setup.py).
+    3. Local development build at ./nq/nq.
+    4. System PATH (e.g. if the user already has nq installed).
+    """
     env_nq = os.environ.get("NQ_BIN")
     if env_nq and os.path.isfile(env_nq):
         return env_nq
-    
+
+    # Binary bundled inside the installed package (nqx_tui/bin/nq)
+    bundled_nq = os.path.join(os.path.dirname(__file__), "bin", "nq")
+    if os.path.isfile(bundled_nq):
+        return bundled_nq
+
+    # Local development tree
     local_nq = os.path.abspath("./nq/nq")
     if os.path.isfile(local_nq):
         return local_nq
-    
+
     # Fallback to system PATH
     return "nq"
 

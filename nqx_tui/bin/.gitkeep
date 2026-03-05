@@ -1,0 +1,2 @@
+# This directory holds the compiled nq/nqtail/nqterm binaries bundled with the package.
+# The binaries are compiled at install time by setup.py and are not tracked by git.

@@ -74,7 +74,9 @@ class NQX(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.nq_dir = os.path.abspath(os.environ.get("NQDIR", "."))
+        default_nq_dir = os.path.expanduser("~/.local/share/nq")
+        self.nq_dir = os.path.abspath(os.environ.get("NQDIR", default_nq_dir))
+        os.makedirs(self.nq_dir, exist_ok=True)
         self.nq_path = get_nq_executable()
         self.last_read_pos = {} 
         self._target_index = None
