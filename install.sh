@@ -29,7 +29,7 @@ run_privileged() {
         "$@"
         return $?
     fi
-    if have_cmd sudo && sudo -n true >/dev/null 2>&1; then
+    if have_cmd sudo; then
         sudo "$@"
         return $?
     fi
@@ -133,7 +133,7 @@ else
         if pkg_install_nq "${PM}"; then
             ok "installed nq via ${PM}"
         else
-            warn "Could not install nq via ${PM} (missing privileges or install failed)."
+            warn "Could not install nq via ${PM} (no sudo or install failed); will build from source."
         fi
     else
         warn "No supported package manager entry for 'nq' was found."
