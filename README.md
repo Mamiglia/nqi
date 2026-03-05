@@ -1,7 +1,7 @@
 # nqy
 
-**nqy** is a [Textual](https://textual.textualize.io/) terminal UI for
-[nq](https://github.com/leahneukirchen/nq) — a minimal, daemon-free Unix job queue built on `flock(2)`.
+**nqy** is the 
+[nq](https://github.com/leahneukirchen/nq) UI (get it?): a minimal, daemon-free Unix job queue built on `flock(2)`.
 
 Enqueue long-running commands with `nq` and manage them interactively: inspect
 logs, reorder the queue, kill or re-enqueue jobs, and clean up finished runs —
@@ -26,10 +26,10 @@ all without leaving your terminal.
 - Live job list with status indicators (Running / Queued / Finished)
 - Full log viewer with ANSI escape stripping
 - Reorder queued jobs with vim-style `k` / `j`
-- Kill running jobs (with a confirmation two-key press)
-- Re-enqueue any finished job with `d`
-- Clean all finished job logs with `c`
-- Copy a job's log path to the clipboard with `y`
+- Kill running jobs (double-press to confirm)
+- Re-enqueue any finished or running job with `d`
+- Clean all finished job logs with `c` (double-press to confirm)
+- Copy a job's full log content to the clipboard with `y`
 - Ad-hoc command input with `!`
 - Default queue stored in `~/.local/share/nq` — no config needed
 
@@ -39,61 +39,69 @@ all without leaving your terminal.
 |---|---|
 | Linux / macOS / any POSIX.1-2008 system | `flock(2)` required |
 | Python ≥ 3.8 | for the TUI |
-| `gcc` or `clang` + `make` | only needed when building from source |
+| `gcc` or `clang` + `make` | to build the bundled `nq` C utilities |
 | `pipx` or `pip` | for the Python install |
 
 > macOS and BSDs should work but are untested. `flock(2)` must be available.
 
 ## Installation
 
-### Recommended — one-line installer
-
-Clone the repository and run the installer script.
-It installs `nqy` via `pipx` (falling back to `pip --user`). The installation process automatically fetches and compiles [nq](https://github.com/leahneukirchen/nq), and installs the binaries (`nq`, `nqtail`, `nqterm`) to `~/.local/bin`.
+### One-line install
 
 ```bash
-git clone https://github.com/youruser/nqy.git
-cd nqy
-./install.sh
+curl -fsSL https://raw.githubusercontent.com/mamiglia/nqy/master/install.sh | bash
 ```
 
-If `~/.local/bin` is not already in your `PATH`, the installer will tell you.
-Add this line to your shell config (`~/.bashrc`, `~/.zshrc`, etc.) and restart
-your shell:
+This clones the repo, compiles `nq`, installs `nq`/`nqtail`/`nqterm` wrappers to
+`~/.local/bin` (backed by upstream binaries in `~/.local/lib/nqy/bin`), and
+installs the `nqy` TUI via `pipx` (falling back to `pip --user`).
+
+The wrappers set `NQDIR=~/.local/share/nq` when `NQDIR` is unset, so plain
+`nq ...` commands and `nqy` use the same default queue.
+
+If `~/.local/bin` is not yet in your `PATH`, add this to your shell config
+(`~/.bashrc`, `~/.zshrc`, etc.):
 
 ```bash
 export PATH="${HOME}/.local/bin:${PATH}"
 ```
 
-### pip / pipx (also compiles nq automatically)
+### pip / pipx
 
 ```bash
-# isolated env — recommended
-pipx install git+https://github.com/youruser/nqy.git
+# isolated environment (recommended)
+pipx install git+https://github.com/mamiglia/nqy.git
 
-# or into your user site-packages
-pip install --user git+https://github.com/youruser/nqy.git
+# or into user site-packages
+pip install --user git+https://github.com/mamiglia/nqy.git
 ```
 
-`setup.py` will automatically initialise the `nq` git submodule (or download
-the nq source tarball if not in a git working tree). When `make` and a C
-compiler are available it compiles `nq` and bundles the binaries inside the
-wheel. If compilation fails, `nqy` falls back to a system-installed `nq`.
+`setup.py` automatically initialises the `nq` git submodule (or downloads the
+upstream tarball), compiles it, and bundles the binaries inside the wheel. If
+compilation fails, `nqy` falls back to a system-installed `nq`.
 
-### Manual (system-wide install of nq + user install of nqy)
+If you use a separately installed `nq` binary and want the same default queue
+as `nqy`, set this in your shell config:
 
 ```bash
-git clone --recurse-submodules https://github.com/youruser/nqy.git
-cd nqy/nq
-make
-sudo make install        # installs nq to /usr/local/bin
+export NQDIR="${HOME}/.local/share/nq"
+```
+
+### Manual
+
+```bash
+git clone --recurse-submodules https://github.com/mamiglia/nqy.git
+cd nqy/nq && make && sudo make install   # installs nq to /usr/local/bin
 cd ..
-pip install --user .     # installs nqy TUI
+pip install --user .
 ```
 
 ## Usage
 
 ```bash
+# Optional (recommended unless using the installer wrappers)
+export NQDIR="${HOME}/.local/share/nq"
+
 # Enqueue jobs
 nq make all
 nq ./run-benchmark --config fast
@@ -102,104 +110,88 @@ nq sleep 60
 # Tail the currently-running job's output
 nqtail
 
-# Open the interactive TUI (reads the same NQDIR as nq)
+# Open the interactive TUI
 nqy
 ```
 
-### TUI keyboard shortcuts
+### Keyboard shortcuts
 
 | Key | Action |
 |-----|--------|
 | `k` / `j` | Move the selected queued job up / down in the queue |
-| `K` | Kill the selected job (press twice to confirm) |
-| `d` | Duplicate the selected job |
-| `c` | Clear all finished job log files in NQDIR |
-| `y` | Copy the selected job's log path to clipboard |
+| `K` | Kill the selected job (press twice within 3 s to confirm) |
+| `d` | Re-enqueue (restart) the selected job |
+| `c` | Clean all finished job log files (press twice to confirm) |
+| `y` | Copy the selected job's full log content to clipboard |
 | `!` | Open inline command input to enqueue an arbitrary command |
 | `Esc` | Return focus to the job list |
 | `q` | Quit |
 
-### NQDIR — using multiple queues
+### Multiple queues with NQDIR
 
-By default all job log files live in `~/.local/share/nq`.  Set `NQDIR` to use
-a different directory (useful for per-project or per-purpose queues):
+By default all job log files live in `~/.local/share/nq`. Set `NQDIR` to use
+a different directory:
 
 ```bash
-# download queue
 NQDIR=/tmp/downloads nq wget https://example.com/big.iso
 NQDIR=/tmp/downloads nqy
 
-# per-project queue stored inside the project
 export NQDIR="$PWD/.nq"
 nq make test
 nqy
 ```
 
-### Pointing nqy at a custom nq binary
+### Custom nq binary
 
 ```bash
 NQ_BIN=/opt/custom/nq nqy
 ```
 
-## Development
-
-```bash
-git clone --recurse-submodules https://github.com/youruser/nqy.git
-cd nqy
-
-# Build the C utilities (nq is a git submodule — already fetched above)
-cd nq && make && cd ..
-
-# Create and activate a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate
-
-# Install the package in editable mode
-pip install -e .
-
-# Run the TUI directly
-python nqy.py
-```
-
-### Project layout
-
-```
-nqy/
-├── nq/                  # git submodule → github.com/leahneukirchen/nq
-├── nqy/
-│   ├── app.py           # Textual App — layout, bindings, event handling
-│   ├── logic.py         # job-file parsing, flock-based status detection
-│   ├── widgets.py       # custom Textual widgets (JobListItem, …)
-│   ├── styles.css       # Textual CSS
-│   └── bin/             # compiled nq binaries bundled at install time
-├── nqy.py               # entry-point shim (sets NQDIR default, runs App)
-├── setup.py             # custom build that compiles nq during pip install
-├── pyproject.toml
-└── install.sh           # one-shot shell installer
-```
-
-### nq binary lookup order
-
-`nqy` finds the `nq` binary using the following fallback chain:
+`nqy` resolves the `nq` binary in this order:
 
 1. `NQ_BIN` environment variable
 2. Bundled binary at `nqy/bin/nq` (compiled at install time)
 3. Local development build at `./nq/nq`
 4. System `PATH`
 
-## Testing the install pipeline
-
-Use the provided smoke-test to verify the full installation workflow in a
-pristine Docker container before releasing:
+## Development
 
 ```bash
-./test-install.sh           # runs both install.sh and pip-install paths
-./test-install.sh installer # test only the install.sh path
-./test-install.sh pip       # test only the pip/setup.py path
+git clone --recurse-submodules https://github.com/mamiglia/nqy.git
+cd nqy
+
+# Build the C utilities
+cd nq && make && cd ..
+
+# Install in editable mode
+python3 -m venv .venv && source .venv/bin/activate
+pip install -e .
+
+# Run the TUI
+python nqy.py
+
+# Run Python tests
+python -m unittest discover -s tests -v
+
+# Smoke-test installer/pip Docker paths
+./tools/test-install.sh
 ```
 
-See [test-install.sh](test-install.sh) and [Dockerfile.test](Dockerfile.test)
-for details.
+### Project layout
+
+```
+nqy/
+├── nq/              # git submodule → github.com/leahneukirchen/nq
+├── nqy/
+│   ├── app.py       # Textual App — layout, bindings, event handling
+│   ├── logic.py     # job-file parsing, flock-based status detection
+│   ├── widgets.py   # custom Textual widgets
+│   ├── styles.css   # Textual CSS
+│   └── bin/         # compiled nq binaries bundled at install time
+├── setup.py         # custom build that compiles nq during pip install
+├── pyproject.toml
+└── install.sh       # one-shot shell installer
+```
 
 ## License
 
