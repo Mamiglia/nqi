@@ -1,0 +1,3 @@
+[submodule "nq"]
+	path = nq
+	url = https://github.com/leahneukirchen/nq
