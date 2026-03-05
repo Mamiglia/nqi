@@ -6,7 +6,11 @@ inside the nqy wheel (at nqy/bin/).
 import os
 import sys
 import shutil
+import hashlib
 import subprocess
+import tarfile
+import tempfile
+import urllib.request
 from pathlib import Path
 
 from setuptools import setup
@@ -15,14 +19,36 @@ from setuptools.command.build_py import build_py as _build_py
 NQ_BINARIES = ["nq", "nqtail", "nqterm"]
 NQ_SRC = Path(__file__).parent / "nq"
 BIN_DEST = Path(__file__).parent / "nqy" / "bin"
-# Upstream nq repo – used as a fallback when the submodule isn't initialised
-# and we're not inside a git working tree (e.g. a pip sdist install).
-NQ_UPSTREAM = "https://github.com/leahneukirchen/nq/archive/refs/heads/master.tar.gz"
+# Upstream nq fallback source is pinned to a fixed tag for reproducible builds.
+NQ_UPSTREAM_TAG = "v1.0"
+NQ_UPSTREAM = f"https://github.com/leahneukirchen/nq/archive/refs/tags/{NQ_UPSTREAM_TAG}.tar.gz"
+NQ_UPSTREAM_SHA256 = "d5b79a488a88f4e4d04184efa0bc116929baf9b34617af70d8debfb37f7431f4"
 
 
 def _nq_source_populated() -> bool:
     """True when the nq/ submodule has been checked out (nq.c is present)."""
     return (NQ_SRC / "nq.c").exists()
+
+
+def _verify_sha256(path: Path, expected_sha256: str) -> None:
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+            h.update(chunk)
+    digest = h.hexdigest()
+    if digest != expected_sha256:
+        raise RuntimeError(
+            f"Checksum mismatch for {path.name}: expected {expected_sha256}, got {digest}"
+        )
+
+
+def _safe_extract_tar(tf: tarfile.TarFile, dest: Path) -> None:
+    dest_resolved = dest.resolve()
+    for member in tf.getmembers():
+        target = (dest / member.name).resolve()
+        if os.path.commonpath([str(dest_resolved), str(target)]) != str(dest_resolved):
+            raise RuntimeError(f"Unsafe tar entry detected: {member.name}")
+    tf.extractall(dest)
 
 
 def ensure_nq_submodule():
@@ -50,21 +76,19 @@ def ensure_nq_submodule():
         except (subprocess.CalledProcessError, FileNotFoundError) as exc:
             print(f"Warning: git submodule init failed ({exc}).", file=sys.stderr)
 
-    # Fallback: download a tarball of the upstream nq source.
-    import tarfile
-    import urllib.request
-    import tempfile
-
+    # Fallback: download a pinned tarball of upstream nq source.
     print(f"Downloading nq source from {NQ_UPSTREAM} ...")
     try:
-        with tempfile.TemporaryDirectory() as tmp:
-            tarball = os.path.join(tmp, "nq.tar.gz")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            tarball = tmp / "nq.tar.gz"
             urllib.request.urlretrieve(NQ_UPSTREAM, tarball)
+            _verify_sha256(tarball, NQ_UPSTREAM_SHA256)
             with tarfile.open(tarball) as tf:
-                tf.extractall(tmp)
-            # The tarball extracts to nq-master/ — move its contents into nq/
+                _safe_extract_tar(tf, tmp)
+            # The tarball extracts to nq-<tag>/ — move its contents into nq/
             extracted = next(
-                d for d in Path(tmp).iterdir()
+                d for d in tmp.iterdir()
                 if d.is_dir() and d.name != "__MACOSX"
             )
             NQ_SRC.mkdir(exist_ok=True)
