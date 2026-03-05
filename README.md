@@ -26,7 +26,7 @@ all without leaving your terminal.
 |---|---|
 | Linux / macOS / any POSIX.1-2008 system | `flock(2)` required |
 | Python ≥ 3.8 | for the TUI |
-| `gcc` or `clang` + `make` | to build the bundled `nq` C utilities |
+| `gcc` or `clang` + `make` | to compile `nq` C utilities at install time (falls back to system `nq`) |
 | `pipx` or `pip` | for the Python install |
 
 > macOS and BSDs should work but are untested. `flock(2)` must be available.
@@ -39,23 +39,10 @@ all without leaving your terminal.
 curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | bash
 ```
 
-This installs the `nqi` TUI via `pipx` (falling back to `pip --user`), then
-ensures `nq` utilities are available in this order:
-
-1. Reuse existing `nq`/`nqtail`/`nqterm` already on `PATH`
-2. Try distro package manager install (`apt`, `dnf`, `yum`, `pacman`, `zypper`, `apk`)
-3. Compile local fallback and install `nq`/`nqtail`/`nqterm` wrappers in `~/.local/bin`
-
-When local fallback wrappers are installed, they set
-`NQDIR=~/.local/share/nq` when unset, so plain `nq ...` commands and `nqi`
-use the same default queue.
-
-If `~/.local/bin` is not yet in your `PATH`, add this to your shell config
-(`~/.bashrc`, `~/.zshrc`, etc.):
-
-```bash
-export PATH="${HOME}/.local/bin:${PATH}"
-```
+This installs the `nqi` Python package via `pipx` (falling back to `pip --user`).
+The build automatically compiles and bundles the `nq` C utilities inside the
+package. The installer will then offer to configure `NQDIR` in your shell rc
+so that `nq` and `nqi` share the same default queue (`~/.local/share/nq`).
 
 ### pip / pipx
 
@@ -71,8 +58,8 @@ pip install --user git+https://github.com/mamiglia/nqi.git
 upstream tarball), compiles it, and bundles binaries inside the wheel. If
 compilation fails, `nqi` falls back to a system-installed `nq`.
 
-If you use a separately installed `nq` binary and want the same default queue
-as `nqi`, set this in your shell config:
+To ensure `nq` and `nqi` use the same default queue, set this in your shell
+config:
 
 ```bash
 export NQDIR="${HOME}/.local/share/nq"
@@ -90,7 +77,8 @@ pip install --user .
 ## Usage
 
 ```bash
-# Optional (recommended unless using the installer wrappers)
+# Recommended: set NQDIR so nq and nqi share the same queue
+# (install.sh offers to add this automatically)
 export NQDIR="${HOME}/.local/share/nq"
 
 # Enqueue jobs
@@ -145,10 +133,6 @@ NQ_BIN=/opt/custom/nq nqi
 3. Local development build at `./nq/nq`
 4. System `PATH`
 
-`install.sh` resolution policy is different on purpose: it prefers your system
-`nq` (including distro packages) and only builds local wrappers as a last
-resort.
-
 ## Development
 
 ```bash
@@ -185,7 +169,7 @@ nqi/
 │   └── bin/         # compiled nq binaries bundled at install time
 ├── setup.py         # custom build that compiles nq during pip install
 ├── pyproject.toml
-└── install.sh       # one-shot shell installer
+└── install.sh       # thin wrapper: pip/pipx install + shell rc setup
 ```
 
 ## License
