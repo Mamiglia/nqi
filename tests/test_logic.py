@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import fcntl
 
-from nqy.logic import JobStatus, kill_job, swap_jobs
+from nqi.logic import JobStatus, kill_job, swap_jobs
 
 
 class LogicTests(unittest.TestCase):
@@ -16,7 +16,7 @@ class LogicTests(unittest.TestCase):
             with open(path, "w", encoding="utf-8") as f:
                 f.write("exec sleep 10\n")
 
-            with patch("nqy.logic.os.kill") as mocked_kill:
+            with patch("nqi.logic.os.kill") as mocked_kill:
                 self.assertFalse(kill_job(job_id, td))
                 mocked_kill.assert_not_called()
 
@@ -32,7 +32,7 @@ class LogicTests(unittest.TestCase):
                 fcntl.flock(lock_file, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 os.chmod(path, 0o644)  # not executable => QUEUED
 
-                with patch("nqy.logic.os.kill") as mocked_kill:
+                with patch("nqi.logic.os.kill") as mocked_kill:
                     self.assertTrue(kill_job(job_id, td))
                     mocked_kill.assert_called_once_with(23456, unittest.mock.ANY)
             finally:
@@ -53,12 +53,12 @@ class LogicTests(unittest.TestCase):
         def fake_get_cmd(path):
             return commands.get(os.path.basename(path))
 
-        with patch("nqy.logic.get_job_status", side_effect=fake_status), \
-             patch("nqy.logic.get_job_command", side_effect=fake_get_cmd), \
-             patch("nqy.logic.kill_job", return_value=True), \
-             patch("nqy.logic.os.remove"), \
-             patch("nqy.logic.run_nq_cmd", side_effect=lambda args: reenqueued.append(args)), \
-             patch("nqy.logic.time.sleep"):
+        with patch("nqi.logic.get_job_status", side_effect=fake_status), \
+             patch("nqi.logic.get_job_command", side_effect=fake_get_cmd), \
+             patch("nqi.logic.kill_job", return_value=True), \
+             patch("nqi.logic.os.remove"), \
+             patch("nqi.logic.run_nq_cmd", side_effect=lambda args: reenqueued.append(args)), \
+             patch("nqi.logic.time.sleep"):
             swap_jobs("/tmp/nq", ",002.200", ",001.100", current_files)
 
         self.assertEqual(reenqueued, [["echo", "first"], ["echo", "second"]])

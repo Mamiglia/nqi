@@ -1,10 +1,10 @@
 # Dockerfile.test
 #
-# Smoke-tests the nqy installation pipeline in a clean Docker environment.
+# Smoke-tests the nqi installation pipeline in a clean Docker environment.
 # Two build stages are provided; select with --target:
 #
-#   docker build --target test-installer -t nqy-test-installer .
-#   docker build --target test-pip       -t nqy-test-pip       .
+#   docker build --target test-installer -t nqi-test-installer .
+#   docker build --target test-pip       -t nqi-test-pip       .
 #
 # Or use ./tools/test-install.sh which drives both automatically.
 
@@ -47,7 +47,7 @@ RUN echo "=== Running install.sh ===" && \
 
 # Verify all expected binaries exist and are executable
 RUN echo "=== Checking binary availability ===" && \
-    for bin in nq nqtail nqterm nqy; do \
+    for bin in nq nqtail nqterm nqi; do \
         command -v "$bin" || { echo "FAIL: $bin not found in PATH"; exit 1; }; \
         echo "  OK $bin -> $(command -v $bin)"; \
     done
@@ -73,13 +73,13 @@ FROM base AS test-pip
 RUN echo "=== pip install . ===" && \
     pip3 install --break-system-packages .
 
-# Verify the nqy entry-point was created
-RUN command -v nqy || { echo "FAIL: nqy not found in PATH"; exit 1; }
+# Verify the nqi entry-point was created
+RUN command -v nqi || { echo "FAIL: nqi not found in PATH"; exit 1; }
 
 # The setup.py build_py step should have compiled and bundled nq
-RUN python3 -c "import importlib.util, os, sys; spec = importlib.util.find_spec('nqy'); pkg_dir = os.path.dirname(spec.origin); bundled = os.path.join(pkg_dir, 'bin', 'nq'); sys.exit(0 if os.path.isfile(bundled) else (print('FAIL: bundled nq not found at', bundled) or 1))"
+RUN python3 -c "import importlib.util, os, sys; spec = importlib.util.find_spec('nqi'); pkg_dir = os.path.dirname(spec.origin); bundled = os.path.join(pkg_dir, 'bin', 'nq'); sys.exit(0 if os.path.isfile(bundled) else (print('FAIL: bundled nq not found at', bundled) or 1))"
 
 # Functional smoke-test using the bundled binary via the Python API
-RUN python3 -c "import subprocess, os, time, glob; os.environ['NQDIR'] = '/tmp/nqtest'; os.makedirs('/tmp/nqtest', exist_ok=True); from nqy.logic import get_nq_executable; nq = get_nq_executable(); print('nq binary:', nq); subprocess.check_call([nq, 'echo', 'hello from pip-installed nq']); time.sleep(0.5); logs = glob.glob('/tmp/nqtest/,*'); assert logs, 'FAIL: no job log files'; print('OK: job log created at', logs[0])"
+RUN python3 -c "import subprocess, os, time, glob; os.environ['NQDIR'] = '/tmp/nqtest'; os.makedirs('/tmp/nqtest', exist_ok=True); from nqi.logic import get_nq_executable; nq = get_nq_executable(); print('nq binary:', nq); subprocess.check_call([nq, 'echo', 'hello from pip-installed nq']); time.sleep(0.5); logs = glob.glob('/tmp/nqtest/,*'); assert logs, 'FAIL: no job log files'; print('OK: job log created at', logs[0])"
 
-RUN python3 -c "from nqy.app import NQY; print('OK nqy.app imported')"
+RUN python3 -c "from nqi.app import NQI; print('OK nqi.app imported')"

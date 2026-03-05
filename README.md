@@ -1,6 +1,6 @@
-# nqy
+# nqi
 
-**nqy** is the 
+**nqi** is interactive 
 [nq](https://github.com/leahneukirchen/nq) UI (get it?): a minimal, daemon-free Unix job queue built on `flock(2)`.
 
 Enqueue long-running commands with `nq` and manage them interactively: inspect
@@ -9,7 +9,7 @@ all without leaving your terminal.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│ nqy                                              q:Quit  │
+│ nqi                                              q:Quit  │
 ├──────────────────┬──────────────────────────────────────┤
 │ ● make all       │ [Running] make all                    │
 │ ○ ./benchmark    │                                       │
@@ -49,15 +49,15 @@ all without leaving your terminal.
 ### One-line install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/mamiglia/nqy/master/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | bash
 ```
 
 This clones the repo, compiles `nq`, installs `nq`/`nqtail`/`nqterm` wrappers to
-`~/.local/bin` (backed by upstream binaries in `~/.local/lib/nqy/bin`), and
-installs the `nqy` TUI via `pipx` (falling back to `pip --user`).
+`~/.local/bin` (backed by upstream binaries in `~/.local/lib/nqi/bin`), and
+installs the `nqi` TUI via `pipx` (falling back to `pip --user`).
 
 The wrappers set `NQDIR=~/.local/share/nq` when `NQDIR` is unset, so plain
-`nq ...` commands and `nqy` use the same default queue.
+`nq ...` commands and `nqi` use the same default queue.
 
 If `~/.local/bin` is not yet in your `PATH`, add this to your shell config
 (`~/.bashrc`, `~/.zshrc`, etc.):
@@ -70,18 +70,18 @@ export PATH="${HOME}/.local/bin:${PATH}"
 
 ```bash
 # isolated environment (recommended)
-pipx install git+https://github.com/mamiglia/nqy.git
+pipx install git+https://github.com/mamiglia/nqi.git
 
 # or into user site-packages
-pip install --user git+https://github.com/mamiglia/nqy.git
+pip install --user git+https://github.com/mamiglia/nqi.git
 ```
 
 `setup.py` automatically initialises the `nq` git submodule (or downloads the
 upstream tarball), compiles it, and bundles the binaries inside the wheel. If
-compilation fails, `nqy` falls back to a system-installed `nq`.
+compilation fails, `nqi` falls back to a system-installed `nq`.
 
 If you use a separately installed `nq` binary and want the same default queue
-as `nqy`, set this in your shell config:
+as `nqi`, set this in your shell config:
 
 ```bash
 export NQDIR="${HOME}/.local/share/nq"
@@ -90,8 +90,8 @@ export NQDIR="${HOME}/.local/share/nq"
 ### Manual
 
 ```bash
-git clone --recurse-submodules https://github.com/mamiglia/nqy.git
-cd nqy/nq && make && sudo make install   # installs nq to /usr/local/bin
+git clone --recurse-submodules https://github.com/mamiglia/nqi.git
+cd nqi/nq && make && sudo make install   # installs nq to /usr/local/bin
 cd ..
 pip install --user .
 ```
@@ -111,7 +111,7 @@ nq sleep 60
 nqtail
 
 # Open the interactive TUI
-nqy
+nqi
 ```
 
 ### Keyboard shortcuts
@@ -134,31 +134,31 @@ a different directory:
 
 ```bash
 NQDIR=/tmp/downloads nq wget https://example.com/big.iso
-NQDIR=/tmp/downloads nqy
+NQDIR=/tmp/downloads nqi
 
 export NQDIR="$PWD/.nq"
 nq make test
-nqy
+nqi
 ```
 
 ### Custom nq binary
 
 ```bash
-NQ_BIN=/opt/custom/nq nqy
+NQ_BIN=/opt/custom/nq nqi
 ```
 
-`nqy` resolves the `nq` binary in this order:
+`nqi` resolves the `nq` binary in this order:
 
 1. `NQ_BIN` environment variable
-2. Bundled binary at `nqy/bin/nq` (compiled at install time)
+2. Bundled binary at `nqi/bin/nq` (compiled at install time)
 3. Local development build at `./nq/nq`
 4. System `PATH`
 
 ## Development
 
 ```bash
-git clone --recurse-submodules https://github.com/mamiglia/nqy.git
-cd nqy
+git clone --recurse-submodules https://github.com/mamiglia/nqi.git
+cd nqi
 
 # Build the C utilities
 cd nq && make && cd ..
@@ -168,7 +168,7 @@ python3 -m venv .venv && source .venv/bin/activate
 pip install -e .
 
 # Run the TUI
-python nqy.py
+python nqi.py
 
 # Run Python tests
 python -m unittest discover -s tests -v
@@ -180,9 +180,9 @@ python -m unittest discover -s tests -v
 ### Project layout
 
 ```
-nqy/
+nqi/
 ├── nq/              # git submodule → github.com/leahneukirchen/nq
-├── nqy/
+├── nqi/
 │   ├── app.py       # Textual App — layout, bindings, event handling
 │   ├── logic.py     # job-file parsing, flock-based status detection
 │   ├── widgets.py   # custom Textual widgets
@@ -195,5 +195,5 @@ nqy/
 
 ## License
 
-- `nqy` TUI — [MIT](LICENSE)
+- `nqi` TUI — [MIT](LICENSE)
 - `nq` C utilities — Public Domain ([CC0](http://creativecommons.org/publicdomain/zero/1.0/))

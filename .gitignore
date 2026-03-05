@@ -3,8 +3,8 @@ __pycache__/
 ,*.*
 
 # compiled nq binaries bundled at install time
-nqy/bin/*
-!nqy/bin/.gitkeep
+nqi/bin/*
+!nqi/bin/.gitkeep
 
 # build / dist artefacts
 dist/

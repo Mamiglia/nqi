@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# install.sh – Install nqy (TUI) + nq/nqtail/nqterm (C utilities)
+# install.sh – Install nqi (TUI) + nq/nqtail/nqterm (C utilities)
 #
 # Usage:
 #   ./install.sh
@@ -28,25 +28,25 @@ fi
 python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" \
     || die "Python 3.8 or newer is required."
 
-# ── install nqy (setup.py compiles and bundles nq into the wheel) ─────────────
-info "Installing nqy..."
+# ── install nqi (setup.py compiles and bundles nq into the wheel) ─────────────
+info "Installing nqi..."
 
 if command -v pipx >/dev/null 2>&1; then
     pipx install --force "${SCRIPT_DIR}"
-    ok "nqy installed via pipx"
+    ok "nqi installed via pipx"
 else
     python3 -m pip install --user "${SCRIPT_DIR}"
-    ok "nqy installed via pip --user"
+    ok "nqi installed via pip --user"
 fi
 
 # ── install nq C utilities + wrappers ─────────────────────────────────────────
-# Keep upstream binaries unmodified under ~/.local/lib/nqy/bin, and expose
+# Keep upstream binaries unmodified under ~/.local/lib/nqi/bin, and expose
 # lightweight wrappers in ~/.local/bin that set a shared default NQDIR.
 info "Installing nq C utilities and wrappers..."
 make -C "${SCRIPT_DIR}/nq" > /dev/null
 
 BIN_DIR="${HOME}/.local/bin"
-LIBEXEC_DIR="${HOME}/.local/lib/nqy/bin"
+LIBEXEC_DIR="${HOME}/.local/lib/nqi/bin"
 mkdir -p "${BIN_DIR}" "${LIBEXEC_DIR}"
 
 for bin in nq nqtail nqterm; do
@@ -60,7 +60,7 @@ set -euo pipefail
 : "${NQDIR:=${HOME}/.local/share/nq}"
 export NQDIR
 
-exec "${HOME}/.local/lib/nqy/bin/__BIN__" "$@"
+exec "${HOME}/.local/lib/nqi/bin/__BIN__" "$@"
 EOF
     sed -i "s/__BIN__/${bin}/g" "${BIN_DIR}/${bin}"
     chmod +x "${BIN_DIR}/${bin}"
@@ -83,5 +83,5 @@ if [[ ":${PATH}:" != *":${INSTALL_DIR}:"* ]]; then
 fi
 
 echo
-echo "  Run:  nqy         – open the TUI"
+echo "  Run:  nqi         – open the TUI"
 echo "        nq <cmd>    – enqueue a job"

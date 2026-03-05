@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# test-install.sh – Smoke-test the nqy installation pipeline inside Docker.
+# test-install.sh – Smoke-test the nqi installation pipeline inside Docker.
 #
 # Usage:
 #   ./tools/test-install.sh              # run both tests (default)
@@ -25,7 +25,7 @@ require_docker() {
 
 run_stage() {
     local target="$1"
-    local tag="nqy-test-${target}"
+    local tag="nqi-test-${target}"
 
     info "Testing stage: ${target}"
     docker build \
@@ -38,7 +38,7 @@ run_stage() {
     # RUN instructions, a successful build already means the tests passed.
     # We also do a quick container-run check for belt-and-suspenders.
     docker run --rm "${tag}" python3 -c "
-from nqy.logic import get_nq_executable
+from nqi.logic import get_nq_executable
 nq = get_nq_executable()
 assert nq != 'nq' or __import__('shutil').which('nq'), 'nq not found'
 print('container self-check passed, nq =', nq)
