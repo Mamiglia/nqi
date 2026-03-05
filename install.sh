@@ -2,6 +2,7 @@
 # install.sh – Install nqi (TUI) + nq/nqtail/nqterm (C utilities)
 #
 # Usage:
+#   curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | bash
 #   ./install.sh
 
 set -euo pipefail
@@ -12,92 +13,36 @@ ok()    { printf '\033[1;32m ok \033[0m%s\n' "$*"; }
 warn()  { printf '\033[1;33mwarn\033[0m %s\n' "$*" >&2; }
 die()   { printf '\033[1;31merr \033[0m%s\n' "$*" >&2; exit 1; }
 
-require() {
-    command -v "$1" >/dev/null 2>&1 || die "Required tool not found: $1"
-}
+have_cmd() { command -v "$1" >/dev/null 2>&1; }
 
-have_cmd() {
-    command -v "$1" >/dev/null 2>&1
-}
-
-have_nq_suite() {
-    have_cmd nq && have_cmd nqtail && have_cmd nqterm
-}
-
-run_privileged() {
-    if [[ "${EUID}" -eq 0 ]]; then
-        "$@"
-        return $?
-    fi
-    if have_cmd sudo; then
-        sudo "$@"
-        return $?
-    fi
-    return 1
-}
-
-detect_pkg_manager() {
-    if have_cmd apt-get && have_cmd apt-cache; then
-        echo "apt"
-    elif have_cmd dnf; then
-        echo "dnf"
-    elif have_cmd yum; then
-        echo "yum"
-    elif have_cmd pacman; then
-        echo "pacman"
-    elif have_cmd zypper; then
-        echo "zypper"
-    elif have_cmd apk; then
-        echo "apk"
+ask_yes_no() {
+    local prompt="$1" answer
+    printf '%s [y/N] ' "$prompt"
+    if [ -t 0 ]; then
+        read -r answer
+    elif [ -e /dev/tty ]; then
+        read -r answer </dev/tty
     else
-        echo "none"
+        printf '(no tty, skipping)\n'
+        return 1
     fi
-}
-
-pkg_has_nq() {
-    local pm="$1"
-    case "$pm" in
-        apt) apt-cache show nq >/dev/null 2>&1 ;;
-        dnf) dnf -q info nq >/dev/null 2>&1 ;;
-        yum) yum -q info nq >/dev/null 2>&1 ;;
-        pacman) pacman -Si nq >/dev/null 2>&1 ;;
-        zypper) zypper -n info nq >/dev/null 2>&1 ;;
-        apk) apk search -x nq >/dev/null 2>&1 ;;
+    case "$answer" in
+        [Yy]*) return 0 ;;
         *) return 1 ;;
     esac
 }
 
-pkg_install_nq() {
-    local pm="$1"
-    case "$pm" in
-        apt)
-            run_privileged apt-get update >/dev/null && run_privileged apt-get install -y nq
-            ;;
-        dnf)
-            run_privileged dnf install -y nq
-            ;;
-        yum)
-            run_privileged yum install -y nq
-            ;;
-        pacman)
-            run_privileged pacman -Sy --noconfirm nq
-            ;;
-        zypper)
-            run_privileged zypper -n install nq
-            ;;
-        apk)
-            run_privileged apk add nq
-            ;;
-        *)
-            return 1
-            ;;
+detect_shell_rc() {
+    case "${SHELL:-}" in
+        */zsh)  echo "${HOME}/.zshrc" ;;
+        */bash) echo "${HOME}/.bashrc" ;;
+        *)      echo "${HOME}/.profile" ;;
     esac
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 
 # Detect local checkout vs. being piped from curl.
-# A local checkout has pyproject.toml / setup.py in SCRIPT_DIR.
 if [[ -f "${SCRIPT_DIR}/pyproject.toml" || -f "${SCRIPT_DIR}/setup.py" ]]; then
     NQI_SRC="${SCRIPT_DIR}"
 else
@@ -105,15 +50,18 @@ else
 fi
 
 # ── pre-flight checks ────────────────────────────────────────────────────────
-require python3
-
+have_cmd python3 || die "python3 not found."
 python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,8) else 1)" \
     || die "Python 3.8 or newer is required."
 
+if ! have_cmd make || { ! have_cmd gcc && ! have_cmd clang; }; then
+    warn "gcc/clang and make are recommended to compile the bundled nq utilities."
+    warn "If compilation fails during install, nqi will require a system-installed nq."
+fi
+
 # ── install nqi (setup.py compiles and bundles nq into the wheel) ─────────────
 info "Installing nqi..."
-
-if command -v pipx >/dev/null 2>&1; then
+if have_cmd pipx; then
     pipx install --force "${NQI_SRC}"
     ok "nqi installed via pipx"
 else
@@ -121,97 +69,63 @@ else
     ok "nqi installed via pip --user"
 fi
 
-# ── install nq utilities: system package first, local build last ─────────────
-info "Ensuring nq utilities are available..."
-
-if have_nq_suite; then
-    ok "using existing system nq/nqtail/nqterm from PATH"
-else
-    PM="$(detect_pkg_manager)"
-    if [[ "${PM}" != "none" ]] && pkg_has_nq "${PM}"; then
-        info "Found 'nq' in ${PM}; attempting package install"
-        if pkg_install_nq "${PM}"; then
-            ok "installed nq via ${PM}"
-        else
-            warn "Could not install nq via ${PM} (no sudo or install failed); will build from source."
-        fi
-    else
-        warn "No supported package manager entry for 'nq' was found."
+# ── migrate old install ──────────────────────────────────────────────────────
+# Previous versions of install.sh created wrapper scripts; clean them up.
+for bin in nq nqtail nqterm; do
+    wrapper="${HOME}/.local/bin/${bin}"
+    if [[ -f "${wrapper}" ]] && head -1 "${wrapper}" 2>/dev/null | grep -q '^#!/'; then
+        rm -f "${wrapper}"
+        ok "removed legacy wrapper ${wrapper}"
     fi
-
-    if ! have_nq_suite; then
-        info "Falling back to local build of nq utilities"
-        require make
-        if ! have_cmd gcc && ! have_cmd clang; then
-            die "No C compiler found (gcc or clang required for local nq build)."
-        fi
-
-        BIN_DIR="${HOME}/.local/bin"
-        LIBEXEC_DIR="${HOME}/.local/lib/nqi/bin"
-        mkdir -p "${BIN_DIR}" "${LIBEXEC_DIR}"
-
-        # Resolve nq source: prefer local submodule, otherwise download tarball.
-        if [[ -f "${SCRIPT_DIR}/nq/nq.c" ]]; then
-            NQ_BUILD_DIR="${SCRIPT_DIR}/nq"
-        else
-            NQ_TAG="v1.0"
-            NQ_URL="https://github.com/leahneukirchen/nq/archive/refs/tags/${NQ_TAG}.tar.gz"
-            NQ_SHA256="d5b79a488a88f4e4d04184efa0bc116929baf9b34617af70d8debfb37f7431f4"
-            NQ_TMP="$(mktemp -d)"
-            trap 'rm -rf "${NQ_TMP}"' EXIT
-            info "Downloading nq source (${NQ_TAG})..."
-            require curl
-            curl -fsSL "${NQ_URL}" -o "${NQ_TMP}/nq.tar.gz"
-            if have_cmd sha256sum; then
-                echo "${NQ_SHA256}  ${NQ_TMP}/nq.tar.gz" | sha256sum -c - >/dev/null \
-                    || die "nq tarball checksum mismatch"
-            elif have_cmd shasum; then
-                echo "${NQ_SHA256}  ${NQ_TMP}/nq.tar.gz" | shasum -a 256 -c - >/dev/null \
-                    || die "nq tarball checksum mismatch"
-            else
-                warn "No sha256sum/shasum found; skipping checksum verification."
-            fi
-            tar -xzf "${NQ_TMP}/nq.tar.gz" -C "${NQ_TMP}"
-            NQ_BUILD_DIR="$(find "${NQ_TMP}" -maxdepth 1 -type d -name 'nq-*' | head -1)"
-            [[ -n "${NQ_BUILD_DIR}" ]] || die "Could not find extracted nq source directory."
-        fi
-
-        make -C "${NQ_BUILD_DIR}" > /dev/null
-        for bin in nq nqtail nqterm; do
-            cp "${NQ_BUILD_DIR}/${bin}" "${LIBEXEC_DIR}/${bin}"
-            chmod +x "${LIBEXEC_DIR}/${bin}"
-
-            cat > "${BIN_DIR}/${bin}" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-: "${NQDIR:=${HOME}/.local/share/nq}"
-export NQDIR
-
-exec "${HOME}/.local/lib/nqi/bin/__BIN__" "$@"
-EOF
-            sed -i "s/__BIN__/${bin}/g" "${BIN_DIR}/${bin}"
-            chmod +x "${BIN_DIR}/${bin}"
-            ok "installed ${BIN_DIR}/${bin} (wrapper)"
-        done
-    fi
+done
+if [[ -d "${HOME}/.local/lib/nqi" ]]; then
+    rm -rf "${HOME}/.local/lib/nqi"
+    ok "removed legacy ${HOME}/.local/lib/nqi"
 fi
 
-# ── post-install setup ────────────────────────────────────────────────────────
+# ── create default queue directory ────────────────────────────────────────────
 NQ_DIR="${HOME}/.local/share/nq"
-info "Creating default job directory: ${NQ_DIR}"
 mkdir -p "${NQ_DIR}"
-ok "${NQ_DIR} ready"
+ok "Default job directory ready: ${NQ_DIR}"
 
-# ── PATH check ────────────────────────────────────────────────────────────────
-INSTALL_DIR="${HOME}/.local/bin"
-if [[ ":${PATH}:" != *":${INSTALL_DIR}:"* ]]; then
-    warn "${INSTALL_DIR} is not in your PATH."
+# ── configure shell environment ──────────────────────────────────────────────
+RC_FILE="$(detect_shell_rc)"
+NQDIR_LINE='export NQDIR="${HOME}/.local/share/nq"'
+PATH_LINE='export PATH="${HOME}/.local/bin:${PATH}"'
+
+lines_to_add=()
+labels=()
+
+if ! grep -qF 'NQDIR' "${RC_FILE}" 2>/dev/null; then
+    lines_to_add+=("${NQDIR_LINE}")
+    labels+=("NQDIR (so nq and nqi share the same queue)")
+fi
+
+if [[ ":${PATH}:" != *":${HOME}/.local/bin:"* ]] && \
+   ! grep -qF '.local/bin' "${RC_FILE}" 2>/dev/null; then
+    lines_to_add+=("${PATH_LINE}")
+    labels+=("PATH (so nqi and nq are available)")
+fi
+
+if [[ ${#lines_to_add[@]} -gt 0 ]]; then
     echo
-    echo "  Add this to your shell config (~/.bashrc, ~/.zshrc, etc.):"
-    echo "    export PATH=\"\${HOME}/.local/bin:\${PATH}\""
+    info "The following should be added to ${RC_FILE}:"
+    for i in "${!lines_to_add[@]}"; do
+        echo "  ${lines_to_add[$i]}    # ${labels[$i]}"
+    done
+    echo
+    if ask_yes_no "  Append to ${RC_FILE}?"; then
+        printf '\n# Added by nqi installer\n' >> "${RC_FILE}"
+        for line in "${lines_to_add[@]}"; do
+            echo "${line}" >> "${RC_FILE}"
+        done
+        ok "Updated ${RC_FILE}"
+        warn "Run 'source ${RC_FILE}' or open a new terminal for changes to take effect."
+    else
+        warn "Skipped. Add them manually for nq and nqi to share the same queue."
+    fi
 fi
 
 echo
-echo "  Run:  nqi         – open the TUI"
-echo "        nq <cmd>    – enqueue a job"
+echo "  Run:  nqi         - open the TUI"
+echo "        nq <cmd>    - enqueue a job"
