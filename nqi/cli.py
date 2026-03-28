@@ -62,8 +62,6 @@ def main() -> int:
         print("       nqi -f [nqtail-command...]")
         print("       nqi -t [nqterm-command...]")
         print("       nqi (no arguments) for the TUI")
-        print("\nSubcommands:")
-        print("  nq, nqtail, nqterm  Direct access to nq utilities")
         return 0
 
     # Default nqi behavior:
