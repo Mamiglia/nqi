@@ -34,33 +34,43 @@ def main() -> int:
     ensure_default_nqdir()
 
     program = os.path.basename(sys.argv[0])
+    if program.endswith(".py"):
+        program = program[:-3]
     args = sys.argv[1:]
 
-    # Allow explicit subcommand style: `nqi nq ...`
-    if args and args[0] in NQ_TOOLS:
-        return exec_nq_tool(args[0], args[1:])
-
-    if program == "nqi":
-        # nqi -f => nqtail, nqi -t => nqterm
-        if args and args[0] == "-f":
-            return exec_nq_tool("nqtail", args[1:])
-        if args and args[0] == "-t":
-            return exec_nq_tool("nqterm", args[1:])
-
-        # nqi <cmd...> behaves like nq <cmd...>
-        if args:
-            return exec_nq_tool("nq", args)
-
-        from .app import main as app_main
-
-        app_main()
-        return 0
-
+    # If the program name matches an nq tool exactly, behave as that tool.
+    # This allows symlinking nq -> nqi, nqtail -> nqi, etc.
     if program in NQ_TOOLS:
         return exec_nq_tool(program, args)
 
-    from .app import main as app_main
+    # Explicit subcommand style: `nqi nq ...`
+    if args and args[0] in NQ_TOOLS:
+        return exec_nq_tool(args[0], args[1:])
 
+    # Help handling
+    if args and (args[0] == "--help" or args[0] == "-h"):
+        print("Usage: nqi [nq-command...]")
+        print("       nqi -f [nqtail-command...]")
+        print("       nqi -t [nqterm-command...]")
+        print("       nqi (no arguments) for the TUI")
+        print("\nSubcommands:")
+        print("  nq, nqtail, nqterm  Direct access to nq utilities")
+        return 0
+
+    # Default nqi behavior:
+    # nqi -f => nqtail
+    if args and args[0] == "-f":
+        return exec_nq_tool("nqtail", args[1:])
+    # nqi -t => nqterm
+    if args and args[0] == "-t":
+        return exec_nq_tool("nqterm", args[1:])
+
+    # nqi <cmd...> behaves like nq <cmd...>
+    if args:
+        return exec_nq_tool("nq", args)
+
+    # No arguments => UI
+    from .app import main as app_main
     app_main()
     return 0
 

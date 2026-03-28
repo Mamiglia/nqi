@@ -43,7 +43,7 @@ detect_shell_rc() {
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 NQI_REPO="https://github.com/mamiglia/nqi.git"
 # Pin remote installs to a release tag by default for reproducibility.
-NQI_REF="${NQI_REF:-v0.1.0}"
+NQI_REF="${NQI_REF:-v0.1.1}"
 
 # Detect local checkout vs. being piped from curl.
 if [[ -f "${SCRIPT_DIR}/pyproject.toml" || -f "${SCRIPT_DIR}/setup.py" ]]; then

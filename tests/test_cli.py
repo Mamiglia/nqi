@@ -51,6 +51,16 @@ class CLITests(unittest.TestCase):
         mocked_exec.assert_called_once_with("nqterm", [])
         self.assertEqual(code, 0)
 
+    def test_main_help_prints_usage(self):
+        with patch("nqi.cli.ensure_default_nqdir"), \
+             patch("nqi.cli.sys.stdout") as mocked_stdout, \
+             patch("nqi.cli.sys.argv", ["nqi", "--help"]):
+            code = main()
+        self.assertEqual(code, 0)
+        # Check that 'Usage: nqi' was printed
+        printed = "".join(call.args[0] for call in mocked_stdout.write.call_args_list)
+        self.assertIn("Usage: nqi", printed)
+
 
 if __name__ == "__main__":
     unittest.main()

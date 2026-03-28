@@ -2,7 +2,7 @@
 """
 Development shim for nqi.
 """
-from nqi.app import main
+from nqi.cli import main
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
