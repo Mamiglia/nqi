@@ -74,16 +74,10 @@ def get_binary_path(name="nq"):
     """Returns the absolute path to an nq utility binary.
 
     Search order:
-    1. If name is 'nq', check NQ_BIN environment variable.
-    2. Bundled binary in nqi/bin/{name} (compiled at install time by setup.py).
-    3. Local development build at ./nq/{name}.
-    4. System PATH.
+    1. Bundled binary in nqi/bin/{name} (compiled at install time by setup.py).
+    2. Local development build at ./nq/{name}.
+    3. System PATH.
     """
-    if name == "nq":
-        env_nq = os.environ.get("NQ_BIN")
-        if env_nq and os.path.isfile(env_nq):
-            return env_nq
-
     # Binary bundled inside the installed package (nqi/bin/...)
     bundled = os.path.join(os.path.dirname(__file__), "bin", name)
     if os.path.isfile(bundled):

@@ -41,12 +41,15 @@ detect_shell_rc() {
 }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
+NQI_REPO="https://github.com/mamiglia/nqi.git"
+# Pin remote installs to a release tag by default for reproducibility.
+NQI_REF="${NQI_REF:-v0.1.0}"
 
 # Detect local checkout vs. being piped from curl.
 if [[ -f "${SCRIPT_DIR}/pyproject.toml" || -f "${SCRIPT_DIR}/setup.py" ]]; then
     NQI_SRC="${SCRIPT_DIR}"
 else
-    NQI_SRC="git+https://github.com/mamiglia/nqi.git"
+    NQI_SRC="git+${NQI_REPO}@${NQI_REF}"
 fi
 
 # ── pre-flight checks ────────────────────────────────────────────────────────
@@ -67,6 +70,10 @@ if have_cmd pipx; then
 else
     python3 -m pip install --user "${NQI_SRC}"
     ok "nqi installed via pip --user"
+fi
+
+if [[ "${NQI_SRC}" == git+* ]]; then
+    ok "Installed from pinned ref: ${NQI_REF}"
 fi
 
 # ── migrate old install ──────────────────────────────────────────────────────
@@ -126,6 +133,26 @@ if [[ ${#lines_to_add[@]} -gt 0 ]]; then
     fi
 fi
 
+# ── fail-fast post-install check ──────────────────────────────────────────────
+NQI_BIN="$(command -v nqi || true)"
+if [[ -z "${NQI_BIN}" && -x "${HOME}/.local/bin/nqi" ]]; then
+    NQI_BIN="${HOME}/.local/bin/nqi"
+fi
+[[ -n "${NQI_BIN}" ]] || die "nqi was installed but is not on PATH. Add ~/.local/bin to PATH and retry."
+
+TMP_NQDIR="$(mktemp -d "${TMPDIR:-/tmp}/nqi-install-check.XXXXXX")"
+trap 'rm -rf "${TMP_NQDIR}"' EXIT
+if ! NQDIR="${TMP_NQDIR}" "${NQI_BIN}" true >/dev/null 2>&1; then
+    die "Post-install check failed: unable to enqueue with nqi (no usable bundled/system nq)."
+fi
+if ! NQDIR="${TMP_NQDIR}" "${NQI_BIN}" -w >/dev/null 2>&1; then
+    die "Post-install check failed: unable to wait for queued jobs via nqi -w."
+fi
+ok "Post-install check passed: nqi can execute nq jobs"
+
 echo
+echo "  nqi now wraps: nq, nqtail, nqterm"
 echo "  Run:  nqi         - open the TUI"
-echo "        nq <cmd>    - enqueue a job"
+echo "        nqi <cmd>   - enqueue a job (nq-compatible)"
+echo "        nqi -f      - tail current job (nqtail-compatible)"
+echo "        nqi -t      - open terminal helper (nqterm-compatible)"

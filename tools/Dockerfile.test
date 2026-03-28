@@ -45,8 +45,10 @@ FROM base AS test-installer
 RUN echo "=== Running install.sh ===" && \
     ./install.sh
 
-# Verify the nqi entry-point is on PATH
-RUN command -v nqi || { echo "FAIL: nqi not found in PATH"; exit 1; }
+# Verify only nqi entry-point is installed by this package
+RUN echo "=== Checking binary availability ===" && \
+    command -v nqi || { echo "FAIL: nqi not found in PATH"; exit 1; } && \
+    echo "  OK nqi -> $(command -v nqi)"
 
 # Verify setup.py compiled and bundled nq inside the package
 RUN python3 -c "\
@@ -56,17 +58,14 @@ pkg_dir = os.path.dirname(spec.origin); \
 bundled = os.path.join(pkg_dir, 'bin', 'nq'); \
 sys.exit(0 if os.path.isfile(bundled) else (print('FAIL: bundled nq not found at', bundled) or 1))"
 
-# Functional smoke-test: enqueue a job via the bundled binary, wait, verify
+# Functional smoke-test: enqueue via nqi wrapper, wait, verify
 RUN echo "=== Functional smoke-test ===" && \
+    export NQDIR=/tmp/nqtest && \
+    mkdir -p "$NQDIR" && \
+    nqi echo "hello from nqi" && \
+    nqi -w && \
     python3 -c "\
-import subprocess, os, time, glob; \
-os.environ['NQDIR'] = '/tmp/nqtest'; \
-os.makedirs('/tmp/nqtest', exist_ok=True); \
-from nqi.logic import get_nq_executable; \
-nq = get_nq_executable(); \
-print('nq binary:', nq); \
-subprocess.check_call([nq, 'echo', 'hello from nq']); \
-subprocess.check_call([nq, '-w']); \
+import glob; \
 logs = glob.glob('/tmp/nqtest/,*'); \
 assert logs, 'FAIL: no job log files'; \
 print('OK: job log created at', logs[0])"
@@ -80,7 +79,7 @@ FROM base AS test-pip
 RUN echo "=== pip install . ===" && \
     pip3 install --break-system-packages .
 
-# Verify the nqi entry-point was created
+# Verify only nqi entry-point was created
 RUN command -v nqi || { echo "FAIL: nqi not found in PATH"; exit 1; }
 
 # The setup.py build_py step should have compiled and bundled nq

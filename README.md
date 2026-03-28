@@ -41,8 +41,17 @@ curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | ba
 
 This installs the `nqi` Python package via `pipx` (falling back to `pip --user`).
 The build automatically compiles and bundles the `nq` C utilities inside the
-package. The installer will then offer to configure `NQDIR` in your shell rc
-so that `nq` and `nqi` share the same default queue (`~/.local/share/nq`).
+package.
+
+By default, the installer pins remote installs to the `v0.1.0` git tag for
+reproducibility. Override with an explicit ref if needed:
+
+```bash
+NQI_REF=v0.1.0 curl -fsSL https://raw.githubusercontent.com/mamiglia/nqi/master/install.sh | bash
+```
+
+The installer runs a post-install self-check (`nqi true` + `nqi -w` in a temp
+`NQDIR`) and fails fast if no usable bundled/system `nq` binary is available.
 
 ### pip / pipx
 
@@ -58,13 +67,6 @@ pip install --user git+https://github.com/mamiglia/nqi.git
 upstream tarball), compiles it, and bundles binaries inside the wheel. If
 compilation fails, `nqi` falls back to a system-installed `nq`.
 
-To ensure `nq` and `nqi` use the same default queue, set this in your shell
-config:
-
-```bash
-export NQDIR="${HOME}/.local/share/nq"
-```
-
 ### Manual
 
 ```bash
@@ -77,21 +79,27 @@ pip install --user .
 ## Usage
 
 ```bash
-# Recommended: set NQDIR so nq and nqi share the same queue
-# (install.sh offers to add this automatically)
-export NQDIR="${HOME}/.local/share/nq"
-
 # Enqueue jobs
-nq make all
-nq ./run-benchmark --config fast
-nq sleep 60
+nqi make all
+nqi ./run-benchmark --config fast
+nqi sleep 60
 
 # Tail the currently-running job's output
-nqtail
+nqi -f
 
 # Open the interactive TUI
 nqi
 ```
+
+`nqi` installs only the `nqi` command.
+It forwards to bundled `nq` tools internally:
+
+- `nqi <cmd...>` behaves like `nq <cmd...>`
+- `nqi -f` behaves like `nqtail`
+- `nqi -t` behaves like `nqterm`
+
+It prefers bundled binaries built during installation and uses
+`~/.local/share/nq` as default queue storage when `NQDIR` is not set.
 
 ### Keyboard shortcuts
 
@@ -120,18 +128,11 @@ nq make test
 nqi
 ```
 
-### Custom nq binary
+`nqi` resolves binaries (`nq`, `nqtail`, `nqterm`) in this order:
 
-```bash
-NQ_BIN=/opt/custom/nq nqi
-```
-
-`nqi` resolves the `nq` binary in this order:
-
-1. `NQ_BIN` environment variable
-2. Bundled binary at `nqi/bin/nq` (compiled at install time)
-3. Local development build at `./nq/nq`
-4. System `PATH`
+1. Bundled binary at `nqi/bin/<name>` (compiled at install time)
+2. Local development build at `./nq/<name>`
+3. System `PATH`
 
 ## Development
 
@@ -169,7 +170,7 @@ nqi/
 │   └── bin/         # compiled nq binaries bundled at install time
 ├── setup.py         # custom build that compiles nq during pip install
 ├── pyproject.toml
-└── install.sh       # thin wrapper: pip/pipx install + shell rc setup
+└── install.sh       # thin wrapper: pip/pipx install
 ```
 
 ## License

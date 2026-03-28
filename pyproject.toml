@@ -13,7 +13,7 @@ dependencies = [
 ]
 
 [project.scripts]
-nqi = "nqi.app:main"
+nqi = "nqi.cli:main"
 
 [tool.setuptools.packages.find]
 include = ["nqi*"]
