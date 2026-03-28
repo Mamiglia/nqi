@@ -19,6 +19,15 @@ def ensure_default_nqdir() -> None:
 def exec_nq_tool(tool_name: str, args: list[str]) -> int:
     """Exec the requested nq utility, preferring bundled binaries."""
     tool_path = get_binary_path(tool_name)
+    
+    # Add the bundled binary directory to the PATH so that the tools
+    # can find each other (e.g., nqterm calling nq/nqtail).
+    if os.path.sep in tool_path:
+        bin_dir = os.path.dirname(tool_path)
+        current_path = os.environ.get("PATH", "")
+        if bin_dir not in current_path.split(os.pathsep):
+            os.environ["PATH"] = f"{bin_dir}{os.pathsep}{current_path}"
+            
     argv = [tool_name, *args]
     try:
         if os.path.sep in tool_path:
